@@ -19,12 +19,17 @@ export function useSpeechSynthesis() {
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'zh-CN';
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
+    utterance.rate = 0.85;
+    utterance.pitch = 1.15;
+    utterance.volume = 1;
 
-    // Try to find a Chinese voice
+    // Prefer high-quality Chinese voices
     const voices = window.speechSynthesis.getVoices();
-    const zhVoice = voices.find((v) => v.lang.startsWith('zh'));
+    const zhVoice =
+      voices.find((v) => v.lang === 'zh-CN' && /tingting|lili|shanshan/i.test(v.name)) ||
+      voices.find((v) => v.lang === 'zh-CN' && !v.localService) ||
+      voices.find((v) => v.lang === 'zh-CN') ||
+      voices.find((v) => v.lang.startsWith('zh'));
     if (zhVoice) utterance.voice = zhVoice;
 
     utterance.onstart = () => setIsSpeaking(true);
