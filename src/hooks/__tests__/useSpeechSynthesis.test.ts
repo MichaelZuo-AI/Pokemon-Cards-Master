@@ -1,12 +1,16 @@
 import { renderHook, act } from '@testing-library/react';
 import { useSpeechSynthesis } from '../useSpeechSynthesis';
 
+// Mock fetch to simulate Edge TTS failure (triggers browser fallback)
+global.fetch = jest.fn().mockRejectedValue(new Error('network'));
+
 describe('useSpeechSynthesis', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (global.fetch as jest.Mock).mockRejectedValue(new Error('network'));
   });
 
-  it('detects SpeechSynthesis support', () => {
+  it('detects support', () => {
     const { result } = renderHook(() => useSpeechSynthesis());
     expect(result.current.isSupported).toBe(true);
   });
@@ -16,14 +20,13 @@ describe('useSpeechSynthesis', () => {
     expect(result.current.isSpeaking).toBe(false);
   });
 
-  it('calls speechSynthesis.speak with Chinese config', () => {
+  it('falls back to browser speechSynthesis when Edge TTS fails', async () => {
     const { result } = renderHook(() => useSpeechSynthesis());
 
-    act(() => {
-      result.current.speak('测试文本');
+    await act(async () => {
+      await result.current.speak('测试文本');
     });
 
-    expect(window.speechSynthesis.cancel).toHaveBeenCalled();
     expect(window.speechSynthesis.speak).toHaveBeenCalled();
     expect(SpeechSynthesisUtterance).toHaveBeenCalledWith('测试文本');
   });
