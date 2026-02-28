@@ -17,6 +17,7 @@ const mockCardInfo = {
   nameCn: '皮卡丘',
   nameEn: 'Pikachu',
   nameJp: 'ピカチュウ',
+  introduction: '皮卡丘是最受欢迎的电属性宝可梦。',
   types: ['电'],
   hp: '60',
   stage: '基础',

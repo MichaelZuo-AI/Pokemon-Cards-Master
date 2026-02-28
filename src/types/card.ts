@@ -9,6 +9,7 @@ export interface CardInfo {
   nameCn: string;
   nameEn: string;
   nameJp: string;
+  introduction: string;
   types: string[];
   hp: string;
   stage: string;

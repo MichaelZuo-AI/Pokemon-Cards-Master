@@ -6,6 +6,7 @@ const mockCard: CardInfo = {
   nameCn: '喷火龙',
   nameEn: 'Charizard',
   nameJp: 'リザードン',
+  introduction: '喷火龙是一只强大的火飞行属性宝可梦，能够喷出超高温的火焰融化一切。',
   types: ['火', '飞行'],
   hp: '120',
   stage: '二阶',
@@ -37,6 +38,12 @@ describe('CardResult', () => {
     render(<CardResult cardInfo={mockCard} preview={null} />);
     expect(screen.getByText('火')).toBeInTheDocument();
     expect(screen.getByText('飞行')).toBeInTheDocument();
+  });
+
+  it('renders introduction', () => {
+    render(<CardResult cardInfo={mockCard} preview={null} />);
+    expect(screen.getByText('简介')).toBeInTheDocument();
+    expect(screen.getByText(/喷火龙是一只强大的火飞行属性宝可梦/)).toBeInTheDocument();
   });
 
   it('renders HP', () => {

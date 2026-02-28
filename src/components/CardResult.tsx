@@ -57,6 +57,14 @@ export function CardResult({ cardInfo, preview }: CardResultProps) {
         <SpeakButton text={cardInfo.ttsSummary} />
       </div>
 
+      {/* Introduction */}
+      {cardInfo.introduction && (
+        <div className="bg-gray-900 rounded-xl p-4">
+          <h3 className="text-yellow-400 font-semibold mb-2">简介</h3>
+          <p className="text-gray-300 text-sm leading-relaxed">{cardInfo.introduction}</p>
+        </div>
+      )}
+
       {/* Basic Info */}
       <div className="bg-gray-900 rounded-xl p-4 space-y-0.5">
         <h3 className="text-yellow-400 font-semibold mb-2">基本信息</h3>
