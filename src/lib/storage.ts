@@ -30,13 +30,27 @@ export function addScan(cardInfo: CardInfo, thumbnail: string): ScanRecord {
     history.length = MAX_RECORDS;
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  } catch {
+    // QuotaExceededError — trim older records and retry
+    history.length = Math.min(history.length, 20);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    } catch {
+      // Storage completely full, skip persisting
+    }
+  }
   return record;
 }
 
 export function removeScan(id: string): void {
   const history = getHistory().filter((r) => r.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  } catch {
+    // Ignore write errors on removal
+  }
 }
 
 export function clearHistory(): void {

@@ -10,6 +10,14 @@ export function useSpeechSynthesis() {
 
   useEffect(() => {
     setIsSupported(true);
+
+    // Pre-load voices — Chrome returns empty array on first getVoices() call
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.addEventListener?.('voiceschanged', () => {
+        window.speechSynthesis.getVoices();
+      });
+    }
   }, []);
 
   const cleanup = useCallback(() => {

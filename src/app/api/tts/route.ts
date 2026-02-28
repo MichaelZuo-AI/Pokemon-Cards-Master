@@ -3,6 +3,8 @@ import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 
 const VOICE = 'zh-CN-XiaoxiaoNeural';
 const FORMAT = OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3;
+const MAX_TEXT_LENGTH = 2000;
+const STREAM_TIMEOUT_MS = 8000;
 
 export async function POST(request: NextRequest) {
   const appSource = request.headers.get('X-App-Source');
@@ -22,6 +24,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '请提供朗读文本' }, { status: 400 });
   }
 
+  if (text.length > MAX_TEXT_LENGTH) {
+    return NextResponse.json({ error: '文本过长' }, { status: 413 });
+  }
+
   try {
     const tts = new MsEdgeTTS();
     await tts.setMetadata(VOICE, FORMAT);
@@ -29,11 +35,17 @@ export async function POST(request: NextRequest) {
     const { audioStream } = tts.toStream(text);
     const chunks: Buffer[] = [];
 
-    await new Promise<void>((resolve, reject) => {
+    const streamPromise = new Promise<void>((resolve, reject) => {
       audioStream.on('data', (chunk: Buffer) => chunks.push(chunk));
       audioStream.on('end', () => resolve());
       audioStream.on('error', (err: Error) => reject(err));
     });
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('TTS stream timeout')), STREAM_TIMEOUT_MS);
+    });
+
+    await Promise.race([streamPromise, timeoutPromise]);
 
     const audioBuffer = Buffer.concat(chunks);
 

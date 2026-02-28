@@ -39,6 +39,9 @@ const SYSTEM_PROMPT = `你是一个宝可梦卡牌识别专家，同时也是宝
 - HP必须是具体数字，不能为空
 - 只返回JSON，不要其他文字`;
 
+// Max base64 image size: ~5MB
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+
 function extractJSON(text: string): string {
   // Try to extract JSON from markdown code fences
   const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
@@ -49,6 +52,34 @@ function extractJSON(text: string): string {
   if (jsonMatch) return jsonMatch[0];
 
   return text;
+}
+
+function sanitizeCardInfo(raw: Record<string, unknown>) {
+  return {
+    nameCn: typeof raw.nameCn === 'string' ? raw.nameCn : '未知',
+    nameEn: typeof raw.nameEn === 'string' ? raw.nameEn : 'Unknown',
+    nameJp: typeof raw.nameJp === 'string' ? raw.nameJp : '',
+    introduction: typeof raw.introduction === 'string' ? raw.introduction : '',
+    types: Array.isArray(raw.types) ? raw.types.filter((t: unknown) => typeof t === 'string') : [],
+    hp: typeof raw.hp === 'string' ? raw.hp : '0',
+    stage: typeof raw.stage === 'string' ? raw.stage : '',
+    attacks: Array.isArray(raw.attacks)
+      ? raw.attacks.map((a: Record<string, unknown>) => ({
+          name: typeof a?.name === 'string' ? a.name : '',
+          damage: typeof a?.damage === 'string' ? a.damage : '',
+          energyCost: typeof a?.energyCost === 'string' ? a.energyCost : '',
+          description: typeof a?.description === 'string' ? a.description : '',
+        }))
+      : [],
+    weakness: typeof raw.weakness === 'string' ? raw.weakness : '',
+    resistance: typeof raw.resistance === 'string' ? raw.resistance : '',
+    retreatCost: typeof raw.retreatCost === 'string' ? raw.retreatCost : '',
+    rarity: typeof raw.rarity === 'string' ? raw.rarity : '',
+    setName: typeof raw.setName === 'string' ? raw.setName : '',
+    cardNumber: typeof raw.cardNumber === 'string' ? raw.cardNumber : '',
+    flavorText: typeof raw.flavorText === 'string' ? raw.flavorText : '',
+    ttsSummary: typeof raw.ttsSummary === 'string' ? raw.ttsSummary : '',
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -87,6 +118,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (image.length > MAX_IMAGE_SIZE) {
+    return NextResponse.json(
+      { error: '图片太大，请压缩后重试' },
+      { status: 413 },
+    );
+  }
+
   try {
     const ai = new GoogleGenAI({ apiKey });
 
@@ -107,7 +145,8 @@ export async function POST(request: NextRequest) {
 
     const text = response.text ?? '';
     const jsonStr = extractJSON(text);
-    const cardInfo = JSON.parse(jsonStr);
+    const raw = JSON.parse(jsonStr);
+    const cardInfo = sanitizeCardInfo(raw);
 
     return NextResponse.json({ cardInfo });
   } catch (error) {

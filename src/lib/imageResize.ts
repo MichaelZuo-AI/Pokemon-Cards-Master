@@ -24,7 +24,13 @@ function resizeWithCanvas(
   if (!ctx) throw new Error('Canvas 2D context not available');
 
   ctx.drawImage(img, 0, 0, width, height);
-  return canvas.toDataURL('image/jpeg', quality);
+  const dataURL = canvas.toDataURL('image/jpeg', quality);
+
+  // Release canvas memory (important on mobile Safari)
+  canvas.width = 0;
+  canvas.height = 0;
+
+  return dataURL;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
