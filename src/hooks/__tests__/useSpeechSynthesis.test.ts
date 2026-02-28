@@ -1,28 +1,9 @@
 import { renderHook, act } from '@testing-library/react';
 import { useSpeechSynthesis } from '../useSpeechSynthesis';
 
-// Track Audio instances created
-const mockPlay = jest.fn().mockResolvedValue(undefined);
-const mockPause = jest.fn();
-let lastAudioInstance: any = null;
-
-global.Audio = jest.fn().mockImplementation(() => {
-  lastAudioInstance = {
-    play: mockPlay,
-    pause: mockPause,
-    src: '',
-    onended: null,
-    onerror: null,
-    removeAttribute: jest.fn(),
-  };
-  return lastAudioInstance;
-}) as any;
-
 describe('useSpeechSynthesis', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    lastAudioInstance = null;
-    (global.fetch as any) = jest.fn();
   });
 
   it('detects support', () => {
@@ -35,169 +16,135 @@ describe('useSpeechSynthesis', () => {
     expect(result.current.isSpeaking).toBe(false);
   });
 
-  describe('Edge TTS (primary)', () => {
-    it('fetches audio from /api/tts and plays it', async () => {
-      const fakeBlob = new Blob(['audio'], { type: 'audio/mpeg' });
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        blob: () => Promise.resolve(fakeBlob),
-      });
-
+  describe('speak', () => {
+    it('calls speechSynthesis.speak with correct utterance', () => {
       const { result } = renderHook(() => useSpeechSynthesis());
 
-      await act(async () => {
-        await result.current.speak('你好');
-      });
-
-      // Verify fetch was called with correct params
-      expect(global.fetch).toHaveBeenCalledWith('/api/tts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-App-Source': 'pokemon-cards-master',
-        },
-        body: JSON.stringify({ text: '你好' }),
-      });
-
-      // Verify Audio was created and played
-      expect(global.Audio).toHaveBeenCalled();
-      expect(lastAudioInstance.src).toBeTruthy();
-      expect(mockPlay).toHaveBeenCalled();
-      expect(result.current.isSpeaking).toBe(true);
-    });
-
-    it('pre-creates Audio element before fetch for mobile gesture unlock', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        blob: () => Promise.resolve(new Blob(['audio'])),
-      });
-
-      const { result } = renderHook(() => useSpeechSynthesis());
-
-      let audioCreatedBeforeFetch = false;
-      (global.Audio as jest.Mock).mockImplementation(() => {
-        // Audio should be created before fetch resolves
-        audioCreatedBeforeFetch = true;
-        lastAudioInstance = {
-          play: mockPlay, pause: mockPause, src: '',
-          onended: null, onerror: null, removeAttribute: jest.fn(),
-        };
-        return lastAudioInstance;
-      });
-
-      await act(async () => {
-        await result.current.speak('测试');
-      });
-
-      expect(audioCreatedBeforeFetch).toBe(true);
-    });
-
-    it('sets isSpeaking to false when audio ends', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        blob: () => Promise.resolve(new Blob(['audio'])),
-      });
-
-      const { result } = renderHook(() => useSpeechSynthesis());
-
-      await act(async () => {
-        await result.current.speak('测试');
-      });
-
-      expect(result.current.isSpeaking).toBe(true);
-
-      // Simulate audio ended
       act(() => {
-        lastAudioInstance?.onended?.();
+        result.current.speak('你好');
+      });
+
+      expect(SpeechSynthesisUtterance).toHaveBeenCalledWith('你好');
+      expect(window.speechSynthesis.speak).toHaveBeenCalled();
+      expect(result.current.isSpeaking).toBe(true);
+    });
+
+    it('configures utterance with zh-CN and natural params', () => {
+      const { result } = renderHook(() => useSpeechSynthesis());
+
+      act(() => {
+        result.current.speak('语音设置');
+      });
+
+      const utterance = (SpeechSynthesisUtterance as jest.Mock).mock.results[0].value;
+      expect(utterance.lang).toBe('zh-CN');
+      expect(utterance.rate).toBe(0.85);
+      expect(utterance.pitch).toBe(1.15);
+    });
+
+    it('cancels previous speech before speaking', () => {
+      const { result } = renderHook(() => useSpeechSynthesis());
+
+      act(() => {
+        result.current.speak('第一句');
+      });
+      act(() => {
+        result.current.speak('第二句');
+      });
+
+      expect(window.speechSynthesis.cancel).toHaveBeenCalled();
+    });
+
+    it('sets isSpeaking to false when utterance ends', () => {
+      const { result } = renderHook(() => useSpeechSynthesis());
+
+      act(() => {
+        result.current.speak('测试');
+      });
+
+      expect(result.current.isSpeaking).toBe(true);
+
+      const utterance = (SpeechSynthesisUtterance as jest.Mock).mock.results[0].value;
+      act(() => {
+        utterance.onend();
+      });
+
+      expect(result.current.isSpeaking).toBe(false);
+    });
+
+    it('sets isSpeaking to false on utterance error', () => {
+      const { result } = renderHook(() => useSpeechSynthesis());
+
+      act(() => {
+        result.current.speak('测试');
+      });
+
+      const utterance = (SpeechSynthesisUtterance as jest.Mock).mock.results[0].value;
+      act(() => {
+        utterance.onerror();
       });
 
       expect(result.current.isSpeaking).toBe(false);
     });
   });
 
-  describe('browser fallback', () => {
-    it('falls back to browser TTS when fetch fails', async () => {
-      (global.fetch as jest.Mock).mockRejectedValue(new Error('network'));
+  describe('voice selection', () => {
+    it('selects zh-CN remote voice if available', () => {
+      const remoteZh = { lang: 'zh-CN', name: 'Remote', localService: false };
+      const localZh = { lang: 'zh-CN', name: 'Local', localService: true };
+      (window.speechSynthesis.getVoices as jest.Mock).mockReturnValue([localZh, remoteZh]);
 
       const { result } = renderHook(() => useSpeechSynthesis());
+      act(() => { result.current.speak('测试'); });
 
-      await act(async () => {
-        await result.current.speak('测试文本');
-      });
-
-      expect(window.speechSynthesis.speak).toHaveBeenCalled();
-      expect(SpeechSynthesisUtterance).toHaveBeenCalledWith('测试文本');
+      const utterance = (SpeechSynthesisUtterance as jest.Mock).mock.results[0].value;
+      expect(utterance.voice).toBe(remoteZh);
     });
 
-    it('falls back to browser TTS when API returns error', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({ ok: false });
+    it('falls back to local zh-CN voice', () => {
+      const localZh = { lang: 'zh-CN', name: 'Local', localService: true };
+      (window.speechSynthesis.getVoices as jest.Mock).mockReturnValue([localZh]);
 
       const { result } = renderHook(() => useSpeechSynthesis());
+      act(() => { result.current.speak('测试'); });
 
-      await act(async () => {
-        await result.current.speak('失败测试');
-      });
-
-      expect(window.speechSynthesis.speak).toHaveBeenCalled();
-      expect(SpeechSynthesisUtterance).toHaveBeenCalledWith('失败测试');
+      const utterance = (SpeechSynthesisUtterance as jest.Mock).mock.results[0].value;
+      expect(utterance.voice).toBe(localZh);
     });
 
-    it('falls back to browser TTS when audio.play() rejects', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        blob: () => Promise.resolve(new Blob(['audio'])),
-      });
-      mockPlay.mockRejectedValueOnce(new Error('NotAllowedError'));
+    it('falls back to any zh* voice', () => {
+      const zhTw = { lang: 'zh-TW', name: 'Taiwan', localService: false };
+      (window.speechSynthesis.getVoices as jest.Mock).mockReturnValue([zhTw]);
 
       const { result } = renderHook(() => useSpeechSynthesis());
+      act(() => { result.current.speak('测试'); });
 
-      await act(async () => {
-        await result.current.speak('播放失败');
-      });
-
-      expect(window.speechSynthesis.speak).toHaveBeenCalled();
-      expect(SpeechSynthesisUtterance).toHaveBeenCalledWith('播放失败');
-    });
-
-    it('configures utterance with zh-CN and natural params', async () => {
-      (global.fetch as jest.Mock).mockRejectedValue(new Error('fail'));
-
-      const { result } = renderHook(() => useSpeechSynthesis());
-
-      await act(async () => {
-        await result.current.speak('语音设置');
-      });
-
-      const utteranceInstance = (SpeechSynthesisUtterance as jest.Mock).mock.results[0].value;
-      expect(utteranceInstance.lang).toBe('zh-CN');
-      expect(utteranceInstance.rate).toBe(0.85);
-      expect(utteranceInstance.pitch).toBe(1.15);
+      const utterance = (SpeechSynthesisUtterance as jest.Mock).mock.results[0].value;
+      expect(utterance.voice).toBe(zhTw);
     });
   });
 
-  describe('stop and cleanup', () => {
-    it('stops audio playback on stop()', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        blob: () => Promise.resolve(new Blob(['audio'])),
-      });
-
+  describe('stop', () => {
+    it('calls speechSynthesis.cancel and sets isSpeaking false', () => {
       const { result } = renderHook(() => useSpeechSynthesis());
 
-      await act(async () => {
-        await result.current.speak('停止测试');
-      });
+      act(() => { result.current.speak('测试'); });
+      act(() => { result.current.stop(); });
 
-      act(() => {
-        result.current.stop();
-      });
-
-      expect(mockPause).toHaveBeenCalled();
       expect(window.speechSynthesis.cancel).toHaveBeenCalled();
       expect(result.current.isSpeaking).toBe(false);
     });
 
-    it('cleans up on unmount', () => {
+    it('does not throw when called before speak', () => {
+      const { result } = renderHook(() => useSpeechSynthesis());
+      expect(() => {
+        act(() => { result.current.stop(); });
+      }).not.toThrow();
+    });
+  });
+
+  describe('cleanup', () => {
+    it('cancels speech on unmount', () => {
       const { unmount } = renderHook(() => useSpeechSynthesis());
       unmount();
       expect(window.speechSynthesis.cancel).toHaveBeenCalled();
