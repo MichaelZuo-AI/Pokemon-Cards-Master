@@ -24,42 +24,6 @@ export function useSpeechSynthesis() {
     }
   }, []);
 
-  const speakWithEdgeTTS = useCallback(async (text: string): Promise<boolean> => {
-    try {
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-App-Source': 'pokemon-cards-master',
-        },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) return false;
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      objectUrlRef.current = url;
-
-      const audio = new Audio(url);
-      audioRef.current = audio;
-
-      audio.onended = () => {
-        setIsSpeaking(false);
-        cleanup();
-      };
-      audio.onerror = () => {
-        setIsSpeaking(false);
-        cleanup();
-      };
-
-      await audio.play();
-      return true;
-    } catch {
-      return false;
-    }
-  }, [cleanup]);
-
   const speakWithBrowser = useCallback((text: string) => {
     if (!('speechSynthesis' in window)) return;
 
@@ -92,12 +56,46 @@ export function useSpeechSynthesis() {
     }
     setIsSpeaking(true);
 
-    // Try Edge TTS first, fall back to browser
-    const success = await speakWithEdgeTTS(text);
-    if (!success) {
+    // Pre-create Audio element during user gesture to unlock playback on iOS/Android
+    const audio = new Audio();
+    audioRef.current = audio;
+
+    audio.onended = () => {
+      setIsSpeaking(false);
+      cleanup();
+    };
+    audio.onerror = () => {
+      // Edge TTS audio failed to play, fall back to browser TTS
+      cleanup();
+      speakWithBrowser(text);
+    };
+
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Source': 'pokemon-cards-master',
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) throw new Error('TTS API failed');
+
+      const blob = await response.blob();
+      if (blob.size === 0) throw new Error('Empty audio');
+
+      const url = URL.createObjectURL(blob);
+      objectUrlRef.current = url;
+
+      audio.src = url;
+      await audio.play();
+    } catch {
+      // Edge TTS failed entirely, fall back to browser
+      cleanup();
       speakWithBrowser(text);
     }
-  }, [isSupported, speakWithEdgeTTS, speakWithBrowser, cleanup]);
+  }, [isSupported, speakWithBrowser, cleanup]);
 
   const stop = useCallback(() => {
     cleanup();
