@@ -96,8 +96,9 @@ export function useSpeechSynthesis() {
         };
 
         await audio.play();
-      } catch {
+      } catch (err) {
         // Fallback to browser SpeechSynthesis
+        console.warn('[TTS] Cloud TTS failed, falling back to browser:', err);
         cleanup();
         speakWithBrowserTTS(text, () => setIsSpeaking(false));
       }

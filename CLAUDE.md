@@ -15,7 +15,7 @@ npm run build   # production build
 
 - Next.js 14 App Router, React 18, TypeScript, Tailwind CSS
 - `@google/genai` v1.5.0 → Gemma 3 27B IT (vision API)
-- Google Cloud TTS (WaveNet cmn-CN-Wavenet-A) with browser SpeechSynthesis fallback
+- Google Cloud TTS (Chirp3-HD cmn-CN-Chirp3-HD-Zephyr) with browser SpeechSynthesis fallback
 - LocalStorage for scan history (max 50 records)
 - Jest 30 + React Testing Library
 

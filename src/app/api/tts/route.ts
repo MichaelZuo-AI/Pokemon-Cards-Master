@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const VOICE_NAME = 'cmn-CN-Wavenet-A';
+const VOICE_NAME = 'cmn-CN-Chirp3-HD-Zephyr';
 const LANGUAGE_CODE = 'cmn-CN';
 const MAX_TEXT_LENGTH = 2000;
 const TIMEOUT_MS = 8000;
