@@ -4,20 +4,7 @@
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
 
-// Mock msedge-tts
-const mockOn = jest.fn();
-const mockToStream = jest.fn();
-const mockSetMetadata = jest.fn();
-
-jest.mock('msedge-tts', () => ({
-  MsEdgeTTS: jest.fn().mockImplementation(() => ({
-    setMetadata: mockSetMetadata,
-    toStream: mockToStream,
-  })),
-  OUTPUT_FORMAT: {
-    AUDIO_24KHZ_96KBITRATE_MONO_MP3: 'audio-24khz-96kbitrate-mono-mp3',
-  },
-}));
+const originalFetch = global.fetch;
 
 function makeRequest(body: unknown, headers: Record<string, string> = {}) {
   return new NextRequest('http://localhost:3000/api/tts', {
@@ -31,29 +18,15 @@ function makeRequest(body: unknown, headers: Record<string, string> = {}) {
   });
 }
 
-// Helper to create a mock readable stream
-function createMockAudioStream(data: Buffer) {
-  const handlers: Record<string, Function> = {};
-  const stream = {
-    on: jest.fn((event: string, handler: Function) => {
-      handlers[event] = handler;
-      // Auto-emit data then end on next tick
-      if (event === 'error') {
-        Promise.resolve().then(() => {
-          handlers['data']?.(data);
-          handlers['end']?.();
-        });
-      }
-      return stream;
-    }),
-  };
-  return stream;
-}
-
 describe('POST /api/tts', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockSetMetadata.mockResolvedValue(undefined);
+    process.env.GOOGLE_CLOUD_TTS_API_KEY = 'test-api-key';
+    global.fetch = jest.fn();
+  });
+
+  afterAll(() => {
+    global.fetch = originalFetch;
   });
 
   it('rejects requests without X-App-Source header', async () => {
@@ -95,10 +68,29 @@ describe('POST /api/tts', () => {
     expect(data.error).toBe('请求格式错误');
   });
 
+  it('rejects text exceeding MAX_TEXT_LENGTH', async () => {
+    const req = makeRequest({ text: 'a'.repeat(2001) });
+    const res = await POST(req);
+    expect(res.status).toBe(413);
+    const data = await res.json();
+    expect(data.error).toBe('文本过长');
+  });
+
+  it('returns 500 when API key is missing', async () => {
+    delete process.env.GOOGLE_CLOUD_TTS_API_KEY;
+    const req = makeRequest({ text: '你好' });
+    const res = await POST(req);
+    expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.error).toBe('TTS服务未配置');
+  });
+
   it('returns MP3 audio on success', async () => {
-    const fakeAudio = Buffer.from([0xff, 0xf3, 0xa4, 0xc4, 0x00]);
-    const mockStream = createMockAudioStream(fakeAudio);
-    mockToStream.mockReturnValue({ audioStream: mockStream });
+    const fakeBase64 = Buffer.from([0xff, 0xf3, 0xa4, 0xc4, 0x00]).toString('base64');
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ audioContent: fakeBase64 }),
+    });
 
     const req = makeRequest({ text: '你好世界' });
     const res = await POST(req);
@@ -107,26 +99,39 @@ describe('POST /api/tts', () => {
     expect(res.headers.get('Content-Type')).toBe('audio/mpeg');
 
     const arrayBuf = await res.arrayBuffer();
-    expect(arrayBuf.byteLength).toBe(fakeAudio.length);
+    expect(arrayBuf.byteLength).toBe(5);
   });
 
-  it('sets correct voice metadata', async () => {
-    const fakeAudio = Buffer.from([0xff, 0xf3]);
-    const mockStream = createMockAudioStream(fakeAudio);
-    mockToStream.mockReturnValue({ audioStream: mockStream });
+  it('sends correct request to Google Cloud TTS API', async () => {
+    const fakeBase64 = Buffer.from([0xff]).toString('base64');
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ audioContent: fakeBase64 }),
+    });
 
     const req = makeRequest({ text: '测试' });
     await POST(req);
 
-    expect(mockSetMetadata).toHaveBeenCalledWith(
-      'zh-CN-XiaoxiaoNeural',
-      'audio-24khz-96kbitrate-mono-mp3',
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://texttospeech.googleapis.com/v1/text:synthesize?key=test-api-key',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: { text: '测试' },
+          voice: { languageCode: 'cmn-CN', name: 'cmn-CN-Wavenet-A' },
+          audioConfig: { audioEncoding: 'MP3' },
+        }),
+      }),
     );
-    expect(mockToStream).toHaveBeenCalledWith('测试');
   });
 
-  it('returns 500 when TTS engine fails', async () => {
-    mockSetMetadata.mockRejectedValue(new Error('connection failed'));
+  it('returns 500 when Google API returns error', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 403,
+      text: () => Promise.resolve('Forbidden'),
+    });
 
     const req = makeRequest({ text: '你好' });
     const res = await POST(req);
@@ -135,30 +140,22 @@ describe('POST /api/tts', () => {
     expect(data.error).toBe('TTS生成失败');
   });
 
-  it('returns 500 when audio stream errors', async () => {
-    const handlers: Record<string, Function> = {};
-    const errorStream = {
-      on: jest.fn((event: string, handler: Function) => {
-        handlers[event] = handler;
-        if (event === 'error') {
-          Promise.resolve().then(() => {
-            handlers['error']?.(new Error('stream broken'));
-          });
-        }
-        return errorStream;
-      }),
-    };
-    mockToStream.mockReturnValue({ audioStream: errorStream });
+  it('returns 500 when fetch throws (e.g. timeout)', async () => {
+    (global.fetch as jest.Mock).mockRejectedValue(new Error('aborted'));
 
     const req = makeRequest({ text: '你好' });
     const res = await POST(req);
     expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.error).toBe('TTS生成失败');
   });
 
   it('sets cache control header for caching', async () => {
-    const fakeAudio = Buffer.from([0xff, 0xf3]);
-    const mockStream = createMockAudioStream(fakeAudio);
-    mockToStream.mockReturnValue({ audioStream: mockStream });
+    const fakeBase64 = Buffer.from([0xff, 0xf3]).toString('base64');
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ audioContent: fakeBase64 }),
+    });
 
     const req = makeRequest({ text: '缓存测试' });
     const res = await POST(req);
