@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 const VOICE_NAME = 'cmn-CN-Chirp3-HD-Zephyr';
 const LANGUAGE_CODE = 'cmn-CN';
 const MAX_TEXT_LENGTH = 2000;
@@ -60,12 +62,16 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const audioBuffer = Buffer.from(data.audioContent, 'base64');
+    const binaryStr = atob(data.audioContent);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
 
-    return new NextResponse(audioBuffer, {
+    return new NextResponse(bytes, {
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Content-Length': audioBuffer.length.toString(),
+        'Content-Length': bytes.length.toString(),
         'Cache-Control': 'public, max-age=86400',
       },
     });
