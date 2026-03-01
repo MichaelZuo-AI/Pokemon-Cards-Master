@@ -32,8 +32,14 @@ export function useSpeechSynthesis() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const cleanup = useCallback(() => {
+    // Abort any in-flight fetch
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.removeAttribute('src');
@@ -46,15 +52,8 @@ export function useSpeechSynthesis() {
   }, []);
 
   const speak = useCallback((text: string) => {
-    // Stop any current playback
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.removeAttribute('src');
-    }
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = null;
-    }
+    // Stop any current playback + abort in-flight fetch
+    cleanup();
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
@@ -64,6 +63,10 @@ export function useSpeechSynthesis() {
     // Pre-create Audio synchronously in click context (mobile gesture unlock)
     const audio = new Audio();
     audioRef.current = audio;
+
+    // Create abort controller for this request
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     // Fire async chain
     (async () => {
@@ -75,12 +78,16 @@ export function useSpeechSynthesis() {
             'X-App-Source': 'pokemon-cards-master',
           },
           body: JSON.stringify({ text }),
+          signal: controller.signal,
         });
 
         if (!res.ok) throw new Error(`TTS API error: ${res.status}`);
 
         const blob = await res.blob();
         if (blob.size === 0) throw new Error('Empty audio response');
+
+        // If aborted while waiting for blob, bail out
+        if (controller.signal.aborted) return;
 
         const url = URL.createObjectURL(blob);
         objectUrlRef.current = url;
@@ -97,6 +104,9 @@ export function useSpeechSynthesis() {
 
         await audio.play();
       } catch (err) {
+        // Don't fallback if we intentionally aborted (user clicked stop)
+        if (controller.signal.aborted) return;
+
         // Fallback to browser SpeechSynthesis
         console.warn('[TTS] Cloud TTS failed, falling back to browser:', err);
         cleanup();

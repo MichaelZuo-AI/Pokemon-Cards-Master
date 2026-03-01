@@ -14,7 +14,7 @@ npm run build   # production build
 ## Stack
 
 - Next.js 14 App Router, React 18, TypeScript, Tailwind CSS
-- `@google/genai` v1.5.0 → Gemma 3 27B IT (vision API)
+- `@google/genai` v1.5.0 → Gemini 2.5 Flash (vision API)
 - Google Cloud TTS (Chirp3-HD cmn-CN-Chirp3-HD-Zephyr) with browser SpeechSynthesis fallback
 - LocalStorage for scan history (max 50 records)
 - Jest 30 + React Testing Library
@@ -35,4 +35,4 @@ npm run build   # production build
 - All UI text in Simplified Chinese
 - API route requires `X-App-Source: pokemon-cards-master` header
 - Image sent as raw base64 (data URI prefix stripped)
-- Vision model: `gemma-3-27b-it` (switched from gemini-2.5-flash due to 20 req/day free tier limit)
+- Vision model: `gemini-2.5-flash` (billing enabled, paid tier has 2000 req/min)
