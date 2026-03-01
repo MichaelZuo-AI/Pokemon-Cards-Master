@@ -35,4 +35,4 @@ npm run build   # production build
 - All UI text in Simplified Chinese
 - API route requires `X-App-Source: pokemon-cards-master` header
 - Image sent as raw base64 (data URI prefix stripped)
-- Vision model: `gemini-2.5-pro-preview-05-06` (billing enabled)
+- Vision model: `gemini-2.5-pro` (billing enabled)
