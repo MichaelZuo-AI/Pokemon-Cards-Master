@@ -36,6 +36,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Chirp3-HD has a sentence length limit. Insert sentence-ending punctuation
+    // after Chinese commas/exclamations in long text to avoid 400 errors.
+    const sanitized = text.replace(/([，、])/g, '$1\n');
+    const ssml = `<speak>${sanitized.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</speak>`;
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -45,7 +50,7 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          input: { text },
+          input: { ssml },
           voice: { languageCode: LANGUAGE_CODE, name: VOICE_NAME },
           audioConfig: { audioEncoding: 'MP3' },
         }),

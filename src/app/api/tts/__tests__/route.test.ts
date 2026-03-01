@@ -136,7 +136,7 @@ describe('POST /api/tts', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          input: { text: '测试' },
+          input: { ssml: '<speak>测试</speak>' },
           voice: { languageCode: 'cmn-CN', name: 'cmn-CN-Chirp3-HD-Zephyr' },
           audioConfig: { audioEncoding: 'MP3' },
         }),
