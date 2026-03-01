@@ -6,7 +6,7 @@
  *   2. sanitizeCardInfo fallback values for every field (wrong types)
  *   3. attacks array: items with wrong-typed fields fall back to empty strings
  *   4. types array: non-string elements are filtered out
- *   5. Model name (gemini-2.5-flash) is passed to generateContent
+ *   5. Model name (gemini-3-flash) is passed to generateContent
  */
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
@@ -344,7 +344,7 @@ describe('POST /api/recognize-card – gap coverage', () => {
 
   // ── 5. Model name is passed correctly to generateContent ──────────────────
   describe('model configuration', () => {
-    it('calls generateContent with model "gemini-2.5-flash"', async () => {
+    it('calls generateContent with model "gemini-3-flash"', async () => {
       genaiMocks.generateContent.mockResolvedValueOnce({
         text: validCardJson(),
       });
@@ -352,7 +352,7 @@ describe('POST /api/recognize-card – gap coverage', () => {
       await POST(makeRequest({ image: 'base64' }));
 
       expect(genaiMocks.generateContent).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'gemini-2.5-flash' }),
+        expect.objectContaining({ model: 'gemini-3-flash' }),
       );
     });
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI, createPartFromBase64 } from '@google/genai';
 
-const VISION_MODEL = 'gemini-2.5-flash';
+const VISION_MODEL = 'gemini-3-flash';
 
 const SYSTEM_PROMPT = `你是一个宝可梦卡牌识别专家，同时也是宝可梦百科全书。用户会发送一张宝可梦卡牌的照片，请识别卡牌并返回以下JSON格式的信息（所有文字用简体中文）：
 
