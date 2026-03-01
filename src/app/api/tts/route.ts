@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'edge';
 
-const VOICE_NAME = 'cmn-CN-Chirp3-HD-Zephyr';
+const VOICE_NAME = 'cmn-CN-Standard-A';
 const LANGUAGE_CODE = 'cmn-CN';
 const MAX_TEXT_LENGTH = 2000;
 const TIMEOUT_MS = 8000;
