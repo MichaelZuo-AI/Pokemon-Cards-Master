@@ -11,9 +11,15 @@ export function useSpeechSynthesis() {
 
     if ('speechSynthesis' in window) {
       window.speechSynthesis.getVoices();
-      window.speechSynthesis.addEventListener?.('voiceschanged', () => {
+      const onVoicesChanged = () => {
         window.speechSynthesis.getVoices();
-      });
+      };
+      window.speechSynthesis.addEventListener?.('voiceschanged', onVoicesChanged);
+
+      return () => {
+        window.speechSynthesis.removeEventListener?.('voiceschanged', onVoicesChanged);
+        window.speechSynthesis.cancel();
+      };
     }
   }, []);
 
@@ -46,14 +52,6 @@ export function useSpeechSynthesis() {
       window.speechSynthesis.cancel();
     }
     setIsSpeaking(false);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
   }, []);
 
   return { speak, stop, isSpeaking, isSupported };
