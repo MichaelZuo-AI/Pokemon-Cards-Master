@@ -6,7 +6,7 @@
  *   2. sanitizeCardInfo fallback values for every field (wrong types)
  *   3. attacks array: items with wrong-typed fields fall back to empty strings
  *   4. types array: non-string elements are filtered out
- *   5. Model name (gemini-3-flash-preview) is passed to generateContent
+ *   5. Model name (gemini-2.5-flash) is passed to generateContent
  */
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
@@ -344,7 +344,7 @@ describe('POST /api/recognize-card – gap coverage', () => {
 
   // ── 5. Model name is passed correctly to generateContent ──────────────────
   describe('model configuration', () => {
-    it('calls generateContent with model "gemini-3-flash-preview"', async () => {
+    it('calls generateContent with model "gemini-2.5-flash"', async () => {
       genaiMocks.generateContent.mockResolvedValueOnce({
         text: validCardJson(),
       });
@@ -352,7 +352,7 @@ describe('POST /api/recognize-card – gap coverage', () => {
       await POST(makeRequest({ image: 'base64' }));
 
       expect(genaiMocks.generateContent).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'gemini-3-flash-preview' }),
+        expect.objectContaining({ model: 'gemini-2.5-flash' }),
       );
     });
 
@@ -391,6 +391,112 @@ describe('POST /api/recognize-card – gap coverage', () => {
       expect(res.status).toBe(400);
       const data = await res.json();
       expect(data.error).toBe('请提供卡牌图片');
+    });
+  });
+
+  // ── 8. extractJSON – code fence branches ──────────────────────────────────
+  describe('extractJSON – JSON extraction from Gemini response text', () => {
+    it('extracts JSON wrapped in ```json ... ``` markdown code fence', async () => {
+      const cardJson = validCardJson();
+      genaiMocks.generateContent.mockResolvedValueOnce({
+        text: `Here is the card info:\n\`\`\`json\n${cardJson}\n\`\`\`\nEnd of response.`,
+      });
+
+      const res = await POST(makeRequest({ image: 'base64' }));
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.cardInfo.nameCn).toBe('皮卡丘');
+    });
+
+    it('extracts JSON wrapped in plain ``` ... ``` code fence (no language tag)', async () => {
+      const cardJson = validCardJson();
+      genaiMocks.generateContent.mockResolvedValueOnce({
+        text: `\`\`\`\n${cardJson}\n\`\`\``,
+      });
+
+      const res = await POST(makeRequest({ image: 'base64' }));
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.cardInfo.nameEn).toBe('Pikachu');
+    });
+
+    it('extracts raw JSON object from response when no code fence is present', async () => {
+      const cardJson = validCardJson();
+      genaiMocks.generateContent.mockResolvedValueOnce({
+        // Text with some prose before/after but a bare JSON object embedded
+        text: `Sure! Here you go: ${cardJson} Hope that helps!`,
+      });
+
+      const res = await POST(makeRequest({ image: 'base64' }));
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.cardInfo.nameCn).toBe('皮卡丘');
+    });
+
+    it('returns 500 when the Gemini response text is not valid JSON at all', async () => {
+      // Neither a code fence nor a JSON object — extractJSON returns the raw text,
+      // then JSON.parse throws, which is caught and returns 500.
+      genaiMocks.generateContent.mockResolvedValueOnce({
+        text: 'Sorry, I cannot identify this card.',
+      });
+
+      const res = await POST(makeRequest({ image: 'base64' }));
+      expect(res.status).toBe(500);
+      const data = await res.json();
+      expect(data.error).toBe('识别失败，请重试');
+    });
+
+    it('returns 500 when JSON.parse fails even though the response looks like JSON', async () => {
+      // A truncated/malformed JSON string passes the raw-object regex but fails parse
+      genaiMocks.generateContent.mockResolvedValueOnce({
+        text: '{"nameCn": "皮卡丘", "nameEn": "Pikachu"',
+      });
+
+      const res = await POST(makeRequest({ image: 'base64' }));
+      expect(res.status).toBe(500);
+    });
+
+    it('correctly parses JSON returned as plain text with no surrounding prose', async () => {
+      const cardJson = validCardJson();
+      genaiMocks.generateContent.mockResolvedValueOnce({
+        text: cardJson,
+      });
+
+      const res = await POST(makeRequest({ image: 'base64' }));
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.cardInfo.hp).toBe('60');
+    });
+
+    it('returns 500 when response.text is null/undefined', async () => {
+      genaiMocks.generateContent.mockResolvedValueOnce({
+        text: null,
+      });
+
+      // text ?? '' → empty string → extractJSON returns '' → JSON.parse('') throws
+      const res = await POST(makeRequest({ image: 'base64' }));
+      expect(res.status).toBe(500);
+      const data = await res.json();
+      expect(data.error).toBe('识别失败，请重试');
+    });
+  });
+
+  // ── 9. Malformed request body → 400 ──────────────────────────────────────
+  describe('malformed request body', () => {
+    it('returns 400 when request body is not valid JSON', async () => {
+      const req = new NextRequest('http://localhost:3000/api/recognize-card', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Source': 'pokemon-cards-master',
+        },
+        body: 'not-valid-json',
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toBe('请求格式错误');
     });
   });
 });

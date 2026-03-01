@@ -36,10 +36,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Chirp3-HD has a sentence length limit. Insert sentence-ending punctuation
-    // after Chinese commas/exclamations in long text to avoid 400 errors.
+    // Google TTS has a sentence length limit. Insert line breaks after Chinese
+    // commas to split long sentences, then escape XML special chars for SSML.
     const sanitized = text.replace(/([，、])/g, '$1\n');
-    const ssml = `<speak>${sanitized.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</speak>`;
+    const escaped = sanitized
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+    const ssml = `<speak>${escaped}</speak>`;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -67,6 +73,10 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
+    if (!data.audioContent) {
+      console.error('Google Cloud TTS error: empty audioContent');
+      return NextResponse.json({ error: 'TTS生成失败' }, { status: 500 });
+    }
     const binaryStr = atob(data.audioContent);
     const bytes = new Uint8Array(binaryStr.length);
     for (let i = 0; i < binaryStr.length; i++) {
