@@ -22,6 +22,7 @@ if (typeof window !== 'undefined') {
       removeEventListener: jest.fn(),
     },
     writable: true,
+    configurable: true,
   });
 
   global.SpeechSynthesisUtterance = jest.fn().mockImplementation((text) => ({
@@ -36,7 +37,23 @@ if (typeof window !== 'undefined') {
     onstart: null,
   }));
 
-  // Mock URL.createObjectURL
+  // Mock URL.createObjectURL / revokeObjectURL
   URL.createObjectURL = jest.fn(() => 'blob:mock-url');
   URL.revokeObjectURL = jest.fn();
+
+  // Mock Audio
+  global.Audio = jest.fn().mockImplementation(() => ({
+    play: jest.fn().mockResolvedValue(undefined),
+    pause: jest.fn(),
+    removeAttribute: jest.fn(),
+    src: '',
+    onended: null,
+    onerror: null,
+  }));
+
+  // Mock fetch (default: resolve with audio blob)
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    blob: () => Promise.resolve(new Blob(['audio'], { type: 'audio/mpeg' })),
+  });
 }

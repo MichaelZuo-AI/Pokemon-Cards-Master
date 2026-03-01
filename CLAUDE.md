@@ -15,7 +15,7 @@ npm run build   # production build
 
 - Next.js 14 App Router, React 18, TypeScript, Tailwind CSS
 - `@google/genai` v1.5.0 → Gemma 3 27B IT (vision API)
-- Browser SpeechSynthesis (zh-CN) for voice readback
+- Google Cloud TTS (WaveNet cmn-CN-Wavenet-A) with browser SpeechSynthesis fallback
 - LocalStorage for scan history (max 50 records)
 - Jest 30 + React Testing Library
 
@@ -25,7 +25,7 @@ npm run build   # production build
 |-------|----------|---------|
 | API | `src/app/api/recognize-card/route.ts` | Gemini vision → structured Chinese card info |
 | Hooks | `src/hooks/useCardRecognition.ts` | Image resize + API call state machine |
-| Hooks | `src/hooks/useSpeechSynthesis.ts` | zh-CN TTS via Web Speech API |
+| Hooks | `src/hooks/useSpeechSynthesis.ts` | Google Cloud TTS + browser fallback |
 | Utils | `src/lib/imageResize.ts` | Canvas resize to 1024px JPEG + thumbnails |
 | Utils | `src/lib/storage.ts` | LocalStorage CRUD for scan history |
 | UI | `src/app/page.tsx` | Main page with scanner/result/history views |
