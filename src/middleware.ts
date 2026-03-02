@@ -17,10 +17,9 @@ export const config = {
      * - /login
      * - /api/auth/* (NextAuth routes)
      * - /_next/* (Next.js internals)
-     * - /api/debug (debug endpoint)
      * - /favicon.ico, /manifest.webmanifest, /sw.js, /icons/* (static PWA files)
      */
     '/',
-    '/((?!login|api/auth|api/debug|_next|favicon\\.ico|manifest\\.webmanifest|sw\\.js|icons).*)',
+    '/((?!login|api/auth|_next|favicon\\.ico|manifest\\.webmanifest|sw\\.js|icons).*)',
   ],
 };
