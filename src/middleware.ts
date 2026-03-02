@@ -1,11 +1,11 @@
 import { auth } from '@/lib/auth';
 import { NextResponse } from 'next/server';
+import { BASE_PATH } from '@/lib/paths';
 
 export default auth((req) => {
   if (!req.auth) {
-    const loginUrl = req.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    return NextResponse.redirect(loginUrl);
+    const url = new URL(`${BASE_PATH}/login`, req.nextUrl.origin);
+    return NextResponse.redirect(url);
   }
   return NextResponse.next();
 });
