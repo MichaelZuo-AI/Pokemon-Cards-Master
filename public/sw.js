@@ -1,6 +1,7 @@
 const CACHE_NAME = 'pokemon-cards-v2';
+// Keep in sync with basePath in next.config.js
 const BASE_PATH = '/Pokemon/cardsmaster';
-const APP_SHELL = [BASE_PATH + '/', BASE_PATH + '/manifest.json'];
+const APP_SHELL = [BASE_PATH + '/', BASE_PATH + '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

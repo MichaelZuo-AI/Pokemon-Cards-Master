@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { apiPath } from '@/lib/paths';
 
 function speakWithBrowserTTS(text: string, onEnd: () => void) {
   if (!('speechSynthesis' in window)) {
@@ -71,7 +72,7 @@ export function useSpeechSynthesis() {
     // Fire async chain
     (async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/tts`, {
+        const res = await fetch(apiPath('/api/tts'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

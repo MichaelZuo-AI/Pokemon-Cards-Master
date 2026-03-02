@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { apiPath } from '@/lib/paths';
 
 interface LogEntry {
   time: string;
@@ -22,7 +23,7 @@ export default function TTSDebugPage() {
   async function testTTSAPI() {
     log('info', '--- Test 1: TTS API ---');
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/tts`, {
+      const res = await fetch(apiPath('/api/tts'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -177,7 +178,7 @@ export default function TTSDebugPage() {
 
       // Step 2: Fetch TTS (async — may lose gesture context)
       log('info', 'Step 2: Fetching TTS API...');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/tts`, {
+      const res = await fetch(apiPath('/api/tts'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

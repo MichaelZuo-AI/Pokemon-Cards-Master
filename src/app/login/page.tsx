@@ -1,6 +1,7 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
+import { BASE_PATH } from '@/lib/paths';
 
 export default function LoginPage() {
   return (
@@ -15,7 +16,7 @@ export default function LoginPage() {
       </div>
 
       <button
-        onClick={() => signIn('google', { callbackUrl: process.env.NEXT_PUBLIC_BASE_PATH || '/' })}
+        onClick={() => signIn('google', { callbackUrl: BASE_PATH || '/' })}
         className="flex items-center gap-3 px-6 py-3 bg-white text-gray-800 rounded-full font-medium shadow-lg hover:shadow-xl transition-shadow"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24">

@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { CardInfo, RecognitionState } from '@/types/card';
 import { resizeImage, createThumbnail, stripDataURIPrefix } from '@/lib/imageResize';
 import { addScan } from '@/lib/storage';
+import { apiPath } from '@/lib/paths';
 
 interface QuotaData {
   remaining: number;
@@ -54,7 +55,7 @@ export function useCardRecognition(options?: UseCardRecognitionOptions): UseCard
       // Strip data URI prefix for API
       const base64 = stripDataURIPrefix(resized);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/recognize-card`, {
+      const response = await fetch(apiPath('/api/recognize-card'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

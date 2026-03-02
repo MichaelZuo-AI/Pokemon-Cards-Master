@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { apiPath } from '@/lib/paths';
 
 interface QuotaState {
   remaining: number;
@@ -19,7 +20,7 @@ export function useQuota() {
 
   const fetchQuota = useCallback(async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/quota`);
+      const res = await fetch(apiPath('/api/quota'));
       if (res.ok) {
         const data = await res.json();
         setQuota({
