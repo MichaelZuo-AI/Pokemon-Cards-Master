@@ -1,8 +1,8 @@
-import type { MetadataRoute } from 'next';
+import { NextResponse } from 'next/server';
 import { BASE_PATH } from '@/lib/paths';
 
-export default function manifest(): MetadataRoute.Manifest {
-  return {
+export function GET() {
+  return NextResponse.json({
     name: '宝可梦卡牌大师',
     short_name: '卡牌大师',
     description: '拍照识别宝可梦卡牌，中文语音朗读',
@@ -23,5 +23,7 @@ export default function manifest(): MetadataRoute.Manifest {
         type: 'image/png',
       },
     ],
-  };
+  }, {
+    headers: { 'Content-Type': 'application/manifest+json' },
+  });
 }
