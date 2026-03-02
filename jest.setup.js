@@ -1,5 +1,8 @@
 require('@testing-library/jest-dom');
 
+// Set basePath to empty string in test environment so fetch URLs stay as /api/...
+process.env.NEXT_PUBLIC_BASE_PATH = '';
+
 // Only set up browser mocks when running in jsdom environment
 if (typeof window !== 'undefined') {
   // Mock SpeechSynthesis API

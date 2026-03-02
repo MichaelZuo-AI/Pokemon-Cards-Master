@@ -29,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="bg-gray-950 text-white min-h-screen">
-        <SessionProvider>
+        <SessionProvider basePath={`${process.env.NEXT_PUBLIC_BASE_PATH}/api/auth`}>
         {children}
         </SessionProvider>
         <script

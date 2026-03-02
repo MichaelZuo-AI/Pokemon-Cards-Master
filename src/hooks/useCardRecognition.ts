@@ -54,7 +54,7 @@ export function useCardRecognition(options?: UseCardRecognitionOptions): UseCard
       // Strip data URI prefix for API
       const base64 = stripDataURIPrefix(resized);
 
-      const response = await fetch('/api/recognize-card', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/recognize-card`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

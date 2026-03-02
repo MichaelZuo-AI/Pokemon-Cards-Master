@@ -71,7 +71,7 @@ export function useSpeechSynthesis() {
     // Fire async chain
     (async () => {
       try {
-        const res = await fetch('/api/tts', {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/tts`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

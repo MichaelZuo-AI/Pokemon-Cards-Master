@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
+const basePath = '/Pokemon/cardsmaster';
 const nextConfig = {
-  basePath: '/Pokemon/cardsmaster',
+  basePath,
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath,
+  },
   images: {
     remotePatterns: [
       {

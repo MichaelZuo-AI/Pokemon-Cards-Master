@@ -19,7 +19,7 @@ export function useQuota() {
 
   const fetchQuota = useCallback(async () => {
     try {
-      const res = await fetch('/api/quota');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/quota`);
       if (res.ok) {
         const data = await res.json();
         setQuota({
