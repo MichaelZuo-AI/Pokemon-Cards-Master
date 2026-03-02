@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI, createPartFromBase64 } from '@google/genai';
+import { auth } from '@/lib/auth';
+import { checkQuota, consumeQuota } from '@/lib/quota';
 
 const VISION_MODEL = 'gemini-2.5-flash';
 
@@ -64,12 +66,15 @@ function sanitizeCardInfo(raw: Record<string, unknown>) {
     hp: typeof raw.hp === 'string' ? raw.hp : '0',
     stage: typeof raw.stage === 'string' ? raw.stage : '',
     attacks: Array.isArray(raw.attacks)
-      ? raw.attacks.filter((a: unknown) => a != null).map((a: Record<string, unknown>) => ({
-          name: typeof a?.name === 'string' ? a.name : '',
-          damage: typeof a?.damage === 'string' ? a.damage : '',
-          energyCost: typeof a?.energyCost === 'string' ? a.energyCost : '',
-          description: typeof a?.description === 'string' ? a.description : '',
-        }))
+      ? raw.attacks.filter((a: unknown) => a != null).map((a: unknown) => {
+          const atk = a as Record<string, unknown>;
+          return {
+            name: typeof atk?.name === 'string' ? atk.name : '',
+            damage: typeof atk?.damage === 'string' ? atk.damage : '',
+            energyCost: typeof atk?.energyCost === 'string' ? atk.energyCost : '',
+            description: typeof atk?.description === 'string' ? atk.description : '',
+          };
+        })
       : [],
     weakness: typeof raw.weakness === 'string' ? raw.weakness : '',
     resistance: typeof raw.resistance === 'string' ? raw.resistance : '',
@@ -83,12 +88,21 @@ function sanitizeCardInfo(raw: Record<string, unknown>) {
 }
 
 export async function POST(request: NextRequest) {
-  // Verify app source header
-  const appSource = request.headers.get('X-App-Source');
-  if (appSource !== 'pokemon-cards-master') {
+  // Auth check
+  const session = await auth();
+  if (!session?.user?.id) {
     return NextResponse.json(
-      { error: '未授权的请求' },
+      { error: '请先登录' },
       { status: 401 },
+    );
+  }
+
+  // Quota check
+  const quotaStatus = await checkQuota(session.user.id);
+  if (!quotaStatus.allowed) {
+    return NextResponse.json(
+      { error: '今日扫描次数已用完，明天再来吧', quota: quotaStatus },
+      { status: 429 },
     );
   }
 
@@ -148,7 +162,10 @@ export async function POST(request: NextRequest) {
     const raw = JSON.parse(jsonStr);
     const cardInfo = sanitizeCardInfo(raw);
 
-    return NextResponse.json({ cardInfo });
+    // Consume quota only after successful recognition
+    const quota = await consumeQuota(session.user.id);
+
+    return NextResponse.json({ cardInfo, quota });
   } catch (error) {
     console.error('Gemini API error:', error);
     return NextResponse.json(

@@ -73,7 +73,6 @@ describe('useSpeechSynthesis', () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-App-Source': 'pokemon-cards-master',
           },
           body: JSON.stringify({ text: '测试文本' }),
         }));

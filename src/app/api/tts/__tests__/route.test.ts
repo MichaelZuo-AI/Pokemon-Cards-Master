@@ -4,16 +4,19 @@
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
 
+// Mock auth
+jest.mock('@/lib/auth', () => ({
+  auth: jest.fn().mockResolvedValue({
+    user: { id: 'test-user-123', name: 'Test', email: 'test@example.com' },
+  }),
+}));
+
 const originalFetch = global.fetch;
 
-function makeRequest(body: unknown, headers: Record<string, string> = {}) {
+function makeRequest(body: unknown) {
   return new NextRequest('http://localhost:3000/api/tts', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-App-Source': 'pokemon-cards-master',
-      ...headers,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -29,20 +32,15 @@ describe('POST /api/tts', () => {
     global.fetch = originalFetch;
   });
 
-  it('rejects requests without X-App-Source header', async () => {
-    const req = new NextRequest('http://localhost:3000/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: '你好' }),
-    });
-    const res = await POST(req);
-    expect(res.status).toBe(401);
-  });
+  it('rejects unauthenticated requests', async () => {
+    const { auth } = require('@/lib/auth');
+    auth.mockResolvedValueOnce(null);
 
-  it('rejects requests with wrong X-App-Source header', async () => {
-    const req = makeRequest({ text: '你好' }, { 'X-App-Source': 'wrong-source' });
+    const req = makeRequest({ text: '你好' });
     const res = await POST(req);
     expect(res.status).toBe(401);
+    const data = await res.json();
+    expect(data.error).toBe('请先登录');
   });
 
   it('rejects requests without text', async () => {
@@ -62,10 +60,7 @@ describe('POST /api/tts', () => {
   it('rejects malformed JSON body', async () => {
     const req = new NextRequest('http://localhost:3000/api/tts', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-App-Source': 'pokemon-cards-master',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: 'not-json',
     });
     const res = await POST(req);
@@ -196,7 +191,6 @@ describe('POST /api/tts', () => {
   // ── runtime export ────────────────────────────────────────────────────────
   describe('edge runtime declaration', () => {
     it('exports runtime as "edge"', async () => {
-      // Dynamically import to read the module export value
       const routeModule = await import('../route');
       expect((routeModule as Record<string, unknown>).runtime).toBe('edge');
     });
@@ -247,7 +241,6 @@ describe('POST /api/tts', () => {
 
     it('inserts a newline after Chinese comma 、', async () => {
       const ssml = await captureSSML('草、火');
-      // 、 should be followed by \n before the SSML closing tag
       expect(ssml).toContain('、\n');
     });
 
@@ -258,7 +251,6 @@ describe('POST /api/tts', () => {
 
     it('inserts newlines after every comma occurrence in long text', async () => {
       const ssml = await captureSSML('a，b，c');
-      // Each ， should be followed by a newline
       const newlineCount = (ssml.match(/，\n/g) || []).length;
       expect(newlineCount).toBe(2);
     });
@@ -272,7 +264,6 @@ describe('POST /api/tts', () => {
   // ── atob / Uint8Array decoding ────────────────────────────────────────────
   describe('edge-runtime base64 decoding via atob', () => {
     it('decodes base64 and returns the correct byte values', async () => {
-      // Encode three known bytes and verify they come back correctly
       const originalBytes = [0xde, 0xad, 0xbe];
       const fakeBase64 = Buffer.from(originalBytes).toString('base64');
       (global.fetch as jest.Mock).mockResolvedValue({
@@ -289,7 +280,6 @@ describe('POST /api/tts', () => {
     });
 
     it('returns a body whose byte count matches the decoded base64 length', async () => {
-      // 10 bytes → base64 → decode → still 10 bytes
       const tenBytes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
       const fakeBase64 = Buffer.from(tenBytes).toString('base64');
       (global.fetch as jest.Mock).mockResolvedValue({

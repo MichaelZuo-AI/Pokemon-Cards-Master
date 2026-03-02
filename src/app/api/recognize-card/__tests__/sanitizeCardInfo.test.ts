@@ -8,6 +8,23 @@
  *   4. types array: non-string elements are filtered out
  *   5. Model name (gemini-2.5-flash) is passed to generateContent
  */
+
+// Mock auth and quota before importing route
+jest.mock('@/lib/auth', () => ({
+  auth: jest.fn().mockResolvedValue({
+    user: { id: 'test-user-123', name: 'Test', email: 'test@example.com' },
+  }),
+}));
+
+jest.mock('@/lib/quota', () => ({
+  checkQuota: jest.fn().mockResolvedValue({
+    allowed: true, used: 0, limit: 10, remaining: 10,
+  }),
+  consumeQuota: jest.fn().mockResolvedValue({
+    allowed: true, used: 1, limit: 10, remaining: 9,
+  }),
+}));
+
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
 
@@ -28,10 +45,7 @@ jest.mock('@google/genai', () => ({
 function makeRequest(body: unknown) {
   return new NextRequest('http://localhost:3000/api/recognize-card', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-App-Source': 'pokemon-cards-master',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -486,10 +500,7 @@ describe('POST /api/recognize-card – gap coverage', () => {
     it('returns 400 when request body is not valid JSON', async () => {
       const req = new NextRequest('http://localhost:3000/api/recognize-card', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-App-Source': 'pokemon-cards-master',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: 'not-valid-json',
       });
 

@@ -7,9 +7,10 @@ interface CardScannerProps {
   onFileSelected: (file: File) => void;
   isLoading: boolean;
   preview: string | null;
+  disabled?: boolean;
 }
 
-export function CardScanner({ onFileSelected, isLoading, preview }: CardScannerProps) {
+export function CardScanner({ onFileSelected, isLoading, preview, disabled }: CardScannerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleClick = () => {
@@ -51,8 +52,8 @@ export function CardScanner({ onFileSelected, isLoading, preview }: CardScannerP
       ) : (
         <button
           onClick={handleClick}
-          disabled={isLoading}
-          className="flex flex-col items-center justify-center w-full max-w-xs aspect-[2.5/3.5] rounded-xl border-2 border-dashed border-gray-600 hover:border-yellow-500 hover:bg-yellow-500/5 transition-all group"
+          disabled={isLoading || disabled}
+          className="flex flex-col items-center justify-center w-full max-w-xs aspect-[2.5/3.5] rounded-xl border-2 border-dashed border-gray-600 hover:border-yellow-500 hover:bg-yellow-500/5 transition-all group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-600 disabled:hover:bg-transparent"
         >
           <CameraIcon className="w-16 h-16 text-gray-500 group-hover:text-yellow-500 transition-colors" />
           <p className="mt-4 text-gray-400 group-hover:text-yellow-500 font-medium transition-colors">

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { SessionProvider } from 'next-auth/react';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -28,7 +29,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="bg-gray-950 text-white min-h-screen">
+        <SessionProvider>
         {children}
+        </SessionProvider>
         <script
           dangerouslySetInnerHTML={{
             __html: `

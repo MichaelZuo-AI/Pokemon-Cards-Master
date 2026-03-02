@@ -48,6 +48,7 @@ describe('useCardRecognition – additional coverage', () => {
   it('sets preview to the resized image data URL after recognition', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
+      status: 200,
       json: () => Promise.resolve({ cardInfo: mockCardInfo }),
     });
 
@@ -63,6 +64,7 @@ describe('useCardRecognition – additional coverage', () => {
   it('saves scan to history (addScan) after successful recognition', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
+      status: 200,
       json: () => Promise.resolve({ cardInfo: mockCardInfo }),
     });
 
@@ -79,6 +81,7 @@ describe('useCardRecognition – additional coverage', () => {
   it('strips the data URI prefix before sending to API', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
+      status: 200,
       json: () => Promise.resolve({ cardInfo: mockCardInfo }),
     });
 
@@ -95,9 +98,10 @@ describe('useCardRecognition – additional coverage', () => {
     expect(body.image).toBe('resized-base64');
   });
 
-  it('sends correct headers to the API', async () => {
+  it('sends correct headers to the API (no X-App-Source)', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
+      status: 200,
       json: () => Promise.resolve({ cardInfo: mockCardInfo }),
     });
 
@@ -110,8 +114,8 @@ describe('useCardRecognition – additional coverage', () => {
     const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
     expect(fetchCall[0]).toBe('/api/recognize-card');
     expect(fetchCall[1].method).toBe('POST');
-    expect(fetchCall[1].headers['X-App-Source']).toBe('pokemon-cards-master');
     expect(fetchCall[1].headers['Content-Type']).toBe('application/json');
+    expect(fetchCall[1].headers['X-App-Source']).toBeUndefined();
   });
 
   it('uses generic fallback error message when fetch throws a non-Error object', async () => {
@@ -130,6 +134,7 @@ describe('useCardRecognition – additional coverage', () => {
   it('uses error message from API response body when response is not ok', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
+      status: 500,
       json: () => Promise.resolve({ error: '服务器繁忙' }),
     });
 
@@ -146,6 +151,7 @@ describe('useCardRecognition – additional coverage', () => {
   it('uses fallback error text when non-ok response has no error field', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
+      status: 500,
       json: () => Promise.resolve({}),
     });
 
@@ -162,6 +168,7 @@ describe('useCardRecognition – additional coverage', () => {
   it('uses fallback error text when non-ok response JSON parse fails', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
+      status: 500,
       json: () => Promise.reject(new Error('parse error')),
     });
 
@@ -178,6 +185,7 @@ describe('useCardRecognition – additional coverage', () => {
   it('resets preview to null when reset() is called', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
+      status: 200,
       json: () => Promise.resolve({ cardInfo: mockCardInfo }),
     });
 
@@ -202,6 +210,7 @@ describe('useCardRecognition – additional coverage', () => {
   it('does not call addScan when recognition fails', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
+      status: 500,
       json: () => Promise.resolve({ error: '识别失败' }),
     });
 
@@ -219,11 +228,13 @@ describe('useCardRecognition – additional coverage', () => {
     global.fetch = jest.fn()
       .mockResolvedValueOnce({
         ok: false,
+        status: 500,
         json: () => Promise.resolve({ error: '第一次失败' }),
       })
       // Second call: succeeds.
       .mockResolvedValueOnce({
         ok: true,
+        status: 200,
         json: () => Promise.resolve({ cardInfo: mockCardInfo }),
       });
 

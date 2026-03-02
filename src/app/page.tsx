@@ -3,9 +3,13 @@
 import { useState, useCallback } from 'react';
 import { CardInfo } from '@/types/card';
 import { useCardRecognition } from '@/hooks/useCardRecognition';
+import { useAuth } from '@/hooks/useAuth';
+import { useQuota } from '@/hooks/useQuota';
 import { CardScanner } from '@/components/CardScanner';
 import { CardResult } from '@/components/CardResult';
 import { ScanHistory } from '@/components/ScanHistory';
+import { UserMenu } from '@/components/UserMenu';
+import { QuotaIndicator } from '@/components/QuotaIndicator';
 import { ArrowLeftIcon, HistoryIcon, CameraIcon } from '@/components/Icons';
 
 type View = 'scanner' | 'result' | 'history';
@@ -15,7 +19,12 @@ export default function Home() {
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [selectedCard, setSelectedCard] = useState<{ cardInfo: CardInfo; thumbnail: string } | null>(null);
 
-  const { recognizeCard, state, cardInfo, error, preview, reset } = useCardRecognition();
+  const { user } = useAuth();
+  const { remaining, limit, isExhausted, updateFromResponse } = useQuota();
+
+  const { recognizeCard, state, cardInfo, error, preview, reset } = useCardRecognition({
+    onQuotaUpdate: updateFromResponse,
+  });
 
   const handleFileSelected = useCallback(async (file: File) => {
     setSelectedCard(null);
@@ -42,21 +51,26 @@ export default function Home() {
     <main className="max-w-lg mx-auto px-4 pb-8">
       {/* Header */}
       <header className="flex items-center justify-between py-4">
-        {view !== 'scanner' ? (
-          <button
-            onClick={handleBack}
-            className="p-2 -ml-2 text-gray-400 hover:text-white transition-colors"
-            aria-label="返回"
-          >
-            <ArrowLeftIcon />
-          </button>
-        ) : (
-          <div className="w-10" />
-        )}
+        <div className="flex items-center gap-2">
+          {view !== 'scanner' ? (
+            <button
+              onClick={handleBack}
+              className="p-2 -ml-2 text-gray-400 hover:text-white transition-colors"
+              aria-label="返回"
+            >
+              <ArrowLeftIcon />
+            </button>
+          ) : (
+            <UserMenu userName={user?.name} userImage={user?.image} />
+          )}
+        </div>
 
-        <h1 className="text-lg font-bold text-yellow-400">
-          宝可梦卡牌大师
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-bold text-yellow-400">
+            宝可梦卡牌大师
+          </h1>
+          <QuotaIndicator remaining={remaining} limit={limit} />
+        </div>
 
         {view === 'scanner' ? (
           <button
@@ -82,10 +96,16 @@ export default function Home() {
       {/* Content */}
       {view === 'scanner' && (
         <div className="mt-8">
+          {isExhausted && (
+            <div className="mb-4 p-3 bg-red-900/30 border border-red-800 rounded-lg text-center text-sm text-red-300">
+              今日扫描次数已用完，明天再来吧
+            </div>
+          )}
           <CardScanner
             onFileSelected={handleFileSelected}
             isLoading={state === 'loading'}
             preview={preview}
+            disabled={isExhausted}
           />
         </div>
       )}

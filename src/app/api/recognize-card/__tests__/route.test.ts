@@ -4,6 +4,29 @@
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
 
+// Mock auth
+jest.mock('@/lib/auth', () => ({
+  auth: jest.fn().mockResolvedValue({
+    user: { id: 'test-user-123', name: 'Test', email: 'test@example.com' },
+  }),
+}));
+
+// Mock quota
+jest.mock('@/lib/quota', () => ({
+  checkQuota: jest.fn().mockResolvedValue({
+    allowed: true,
+    used: 0,
+    limit: 10,
+    remaining: 10,
+  }),
+  consumeQuota: jest.fn().mockResolvedValue({
+    allowed: true,
+    used: 1,
+    limit: 10,
+    remaining: 9,
+  }),
+}));
+
 // Mock @google/genai
 jest.mock('@google/genai', () => ({
   GoogleGenAI: jest.fn().mockImplementation(() => ({
@@ -33,16 +56,10 @@ jest.mock('@google/genai', () => ({
   createPartFromBase64: jest.fn().mockReturnValue({ inlineData: { data: 'mock', mimeType: 'image/jpeg' } }),
 }));
 
-function makeRequest(body: unknown, headers: Record<string, string> = {}) {
-  const defaultHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'X-App-Source': 'pokemon-cards-master',
-    ...headers,
-  };
-
+function makeRequest(body: unknown) {
   return new NextRequest('http://localhost:3000/api/recognize-card', {
     method: 'POST',
-    headers: defaultHeaders,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -52,20 +69,39 @@ describe('POST /api/recognize-card', () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv, GEMINI_API_KEY: 'test-key' };
+    jest.clearAllMocks();
   });
 
   afterEach(() => {
     process.env = originalEnv;
   });
 
-  it('rejects requests without X-App-Source header', async () => {
-    const req = new NextRequest('http://localhost:3000/api/recognize-card', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: 'abc' }),
-    });
+  it('rejects unauthenticated requests', async () => {
+    const { auth } = require('@/lib/auth');
+    auth.mockResolvedValueOnce(null);
+
+    const req = makeRequest({ image: 'abc' });
     const res = await POST(req);
     expect(res.status).toBe(401);
+    const data = await res.json();
+    expect(data.error).toBe('请先登录');
+  });
+
+  it('returns 429 when quota is exceeded', async () => {
+    const { checkQuota } = require('@/lib/quota');
+    checkQuota.mockResolvedValueOnce({
+      allowed: false,
+      used: 10,
+      limit: 10,
+      remaining: 0,
+    });
+
+    const req = makeRequest({ image: 'abc' });
+    const res = await POST(req);
+    expect(res.status).toBe(429);
+    const data = await res.json();
+    expect(data.error).toContain('今日扫描次数已用完');
+    expect(data.quota.remaining).toBe(0);
   });
 
   it('rejects requests without image', async () => {
@@ -85,12 +121,22 @@ describe('POST /api/recognize-card', () => {
     expect(data.error).toBe('API密钥未配置');
   });
 
-  it('returns card info on success', async () => {
+  it('returns card info and quota on success', async () => {
     const req = makeRequest({ image: 'base64data' });
     const res = await POST(req);
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.cardInfo.nameCn).toBe('皮卡丘');
     expect(data.cardInfo.nameEn).toBe('Pikachu');
+    expect(data.quota.remaining).toBe(9);
+  });
+
+  it('consumes quota only after successful Gemini call', async () => {
+    const { consumeQuota } = require('@/lib/quota');
+
+    const req = makeRequest({ image: 'base64data' });
+    await POST(req);
+
+    expect(consumeQuota).toHaveBeenCalledWith('test-user-123');
   });
 });

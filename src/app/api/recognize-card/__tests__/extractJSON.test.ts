@@ -4,6 +4,23 @@
 
 // extractJSON is not exported — we test its branches indirectly via POST
 // by controlling what text the Gemini mock returns.
+
+// Mock auth and quota before importing route
+jest.mock('@/lib/auth', () => ({
+  auth: jest.fn().mockResolvedValue({
+    user: { id: 'test-user-123', name: 'Test', email: 'test@example.com' },
+  }),
+}));
+
+jest.mock('@/lib/quota', () => ({
+  checkQuota: jest.fn().mockResolvedValue({
+    allowed: true, used: 0, limit: 10, remaining: 10,
+  }),
+  consumeQuota: jest.fn().mockResolvedValue({
+    allowed: true, used: 1, limit: 10, remaining: 9,
+  }),
+}));
+
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
 
@@ -44,10 +61,7 @@ jest.mock('@google/genai', () => ({
 function makeRequest(body: unknown) {
   return new NextRequest('http://localhost:3000/api/recognize-card', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-App-Source': 'pokemon-cards-master',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -119,10 +133,7 @@ describe('extractJSON – markdown fence variants', () => {
   it('returns 400 when request body is malformed JSON', async () => {
     const req = new NextRequest('http://localhost:3000/api/recognize-card', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-App-Source': 'pokemon-cards-master',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: 'not-valid-json',
     });
     const res = await POST(req);
@@ -143,18 +154,14 @@ describe('extractJSON – markdown fence variants', () => {
     expect(data.cardInfo.nameCn).toBe('皮卡丘');
   });
 
-  it('returns 401 when X-App-Source header has wrong value', async () => {
-    const req = new NextRequest('http://localhost:3000/api/recognize-card', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-App-Source': 'wrong-source',
-      },
-      body: JSON.stringify({ image: 'base64' }),
-    });
+  it('returns 401 when not authenticated', async () => {
+    const { auth } = require('@/lib/auth');
+    auth.mockResolvedValueOnce(null);
+
+    const req = makeRequest({ image: 'base64' });
     const res = await POST(req);
     expect(res.status).toBe(401);
     const data = await res.json();
-    expect(data.error).toBe('未授权的请求');
+    expect(data.error).toBe('请先登录');
   });
 });

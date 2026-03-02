@@ -75,7 +75,6 @@ export function useSpeechSynthesis() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-App-Source': 'pokemon-cards-master',
           },
           body: JSON.stringify({ text }),
           signal: controller.signal,

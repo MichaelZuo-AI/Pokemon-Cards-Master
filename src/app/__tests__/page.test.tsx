@@ -2,6 +2,19 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import Home from '../page';
 
 // ---------------------------------------------------------------------------
+// Mock next-auth/react
+// ---------------------------------------------------------------------------
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({
+    data: { user: { id: 'user-1', name: 'Test User', email: 'test@test.com', image: null } },
+    status: 'authenticated',
+  }),
+  signIn: jest.fn(),
+  signOut: jest.fn(),
+  SessionProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+// ---------------------------------------------------------------------------
 // Mock child components so we can exercise page.tsx logic in isolation without
 // depending on their full implementation details.
 // ---------------------------------------------------------------------------
@@ -10,12 +23,14 @@ jest.mock('@/components/CardScanner', () => ({
     onFileSelected,
     isLoading,
     preview,
+    disabled,
   }: {
     onFileSelected: (file: File) => void;
     isLoading: boolean;
     preview: string | null;
+    disabled?: boolean;
   }) => (
-    <div data-testid="card-scanner" data-loading={String(isLoading)} data-preview={preview ?? ''}>
+    <div data-testid="card-scanner" data-loading={String(isLoading)} data-preview={preview ?? ''} data-disabled={String(!!disabled)}>
       <button
         data-testid="trigger-file"
         onClick={() => onFileSelected(new File(['img'], 'card.jpg', { type: 'image/jpeg' }))}
@@ -81,6 +96,18 @@ jest.mock('@/components/ScanHistory', () => ({
   ),
 }));
 
+jest.mock('@/components/UserMenu', () => ({
+  UserMenu: ({ userName }: { userName?: string | null }) => (
+    <div data-testid="user-menu">{userName}</div>
+  ),
+}));
+
+jest.mock('@/components/QuotaIndicator', () => ({
+  QuotaIndicator: ({ remaining, limit }: { remaining: number; limit: number }) => (
+    <span data-testid="quota-indicator">{remaining}/{limit}</span>
+  ),
+}));
+
 // ---------------------------------------------------------------------------
 // Mock useCardRecognition so we can control state / trigger transitions.
 // ---------------------------------------------------------------------------
@@ -93,13 +120,38 @@ let mockError: string | null = null;
 let mockPreview: string | null = null;
 
 jest.mock('@/hooks/useCardRecognition', () => ({
-  useCardRecognition: () => ({
+  useCardRecognition: (opts?: { onQuotaUpdate?: (q: unknown) => void }) => ({
     recognizeCard: mockRecognizeCard,
     state: mockState,
     cardInfo: mockCardInfo,
     error: mockError,
     preview: mockPreview,
     reset: mockReset,
+  }),
+}));
+
+// Mock useQuota
+jest.mock('@/hooks/useQuota', () => ({
+  useQuota: () => ({
+    remaining: 10,
+    limit: 10,
+    used: 0,
+    loading: false,
+    isExhausted: false,
+    refresh: jest.fn(),
+    updateFromResponse: jest.fn(),
+  }),
+}));
+
+// Mock useAuth
+jest.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: { id: 'user-1', name: 'Test User', email: 'test@test.com', image: null },
+    status: 'authenticated',
+    isLoading: false,
+    isAuthenticated: true,
+    signIn: jest.fn(),
+    signOut: jest.fn(),
   }),
 }));
 
@@ -117,8 +169,6 @@ beforeEach(() => {
   mockError = null;
   mockPreview = null;
 
-  // recognizeCard resolves immediately by default (stays in idle for unit tests
-  // that don't need the loading→success transition; individual tests override).
   mockRecognizeCard.mockResolvedValue(undefined);
 });
 
@@ -138,10 +188,19 @@ describe('Home page – initial render', () => {
     expect(screen.queryByTestId('scan-history')).not.toBeInTheDocument();
   });
 
-  it('shows the history button (not a back button) in scanner view', () => {
+  it('shows the user menu in scanner view', () => {
+    renderHome();
+    expect(screen.getByTestId('user-menu')).toBeInTheDocument();
+  });
+
+  it('shows the quota indicator', () => {
+    renderHome();
+    expect(screen.getByTestId('quota-indicator')).toHaveTextContent('10/10');
+  });
+
+  it('shows the history button in scanner view', () => {
     renderHome();
     expect(screen.getByRole('button', { name: '扫描记录' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '返回' })).not.toBeInTheDocument();
   });
 });
 
@@ -172,7 +231,6 @@ describe('Home page – view navigation', () => {
   });
 
   it('back button in result view calls reset and returns to scanner', async () => {
-    // Simulate a completed recognition so we land in result view.
     mockState = 'success';
     mockCardInfo = {
       nameCn: '皮卡丘', nameEn: 'Pikachu', nameJp: 'ピカチュウ',
@@ -184,15 +242,12 @@ describe('Home page – view navigation', () => {
 
     renderHome();
 
-    // Trigger file selection to move to result view.
     await act(async () => {
       fireEvent.click(screen.getByTestId('trigger-file'));
     });
 
-    // Now in result view.
     expect(screen.getByTestId('card-result')).toBeInTheDocument();
 
-    // Click back.
     fireEvent.click(screen.getByRole('button', { name: '返回' }));
 
     expect(mockReset).toHaveBeenCalledTimes(1);
@@ -224,19 +279,16 @@ describe('Home page – file recognition flow', () => {
       fireEvent.click(screen.getByTestId('trigger-file'));
     });
 
-    // Result view should now be rendered (even during loading state).
     expect(screen.queryByTestId('card-scanner')).not.toBeInTheDocument();
   });
 
   it('increments historyRefreshKey after successful scan (passed to ScanHistory)', async () => {
     renderHome();
 
-    // First scan.
     await act(async () => {
       fireEvent.click(screen.getByTestId('trigger-file'));
     });
 
-    // Navigate to history to check refreshKey.
     fireEvent.click(screen.getByRole('button', { name: '返回' }));
     fireEvent.click(screen.getByRole('button', { name: '扫描记录' }));
     expect(screen.getByTestId('scan-history')).toHaveAttribute('data-refresh-key', '1');
@@ -308,7 +360,6 @@ describe('Home page – result view states', () => {
       fireEvent.click(screen.getByTestId('trigger-file'));
     });
 
-    // In result view with loading state, CardScanner is rendered with isLoading=true.
     const scanner = screen.getByTestId('card-scanner');
     expect(scanner).toBeInTheDocument();
     expect(scanner).toHaveAttribute('data-loading', 'true');
@@ -322,14 +373,11 @@ describe('Home page – history card selection', () => {
   it('navigates to result view when a history card is selected', () => {
     renderHome();
 
-    // Go to history view.
     fireEvent.click(screen.getByRole('button', { name: '扫描记录' }));
     expect(screen.getByTestId('scan-history')).toBeInTheDocument();
 
-    // Select a card from history.
     fireEvent.click(screen.getByTestId('select-from-history'));
 
-    // Should now show result view with the history card.
     expect(screen.getByTestId('card-result')).toBeInTheDocument();
     expect(screen.getByTestId('result-name')).toHaveTextContent('历史卡牌');
   });
@@ -354,7 +402,6 @@ describe('Home page – history card selection', () => {
 
     expect(mockReset).toHaveBeenCalled();
     expect(screen.getByTestId('card-scanner')).toBeInTheDocument();
-    // After back, selectedCard is cleared; a fresh scan would show live cardInfo not history card.
   });
 
   it('selecting a history card does not call recognizeCard', () => {

@@ -5,6 +5,16 @@ import { CardInfo, RecognitionState } from '@/types/card';
 import { resizeImage, createThumbnail, stripDataURIPrefix } from '@/lib/imageResize';
 import { addScan } from '@/lib/storage';
 
+interface QuotaData {
+  remaining: number;
+  limit: number;
+  used: number;
+}
+
+interface UseCardRecognitionOptions {
+  onQuotaUpdate?: (quota: QuotaData) => void;
+}
+
 interface UseCardRecognitionReturn {
   recognizeCard: (file: File) => Promise<void>;
   state: RecognitionState;
@@ -14,7 +24,7 @@ interface UseCardRecognitionReturn {
   reset: () => void;
 }
 
-export function useCardRecognition(): UseCardRecognitionReturn {
+export function useCardRecognition(options?: UseCardRecognitionOptions): UseCardRecognitionReturn {
   const [state, setState] = useState<RecognitionState>('idle');
   const [cardInfo, setCardInfo] = useState<CardInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,10 +58,17 @@ export function useCardRecognition(): UseCardRecognitionReturn {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-App-Source': 'pokemon-cards-master',
         },
         body: JSON.stringify({ image: base64 }),
       });
+
+      if (response.status === 429) {
+        const data = await response.json().catch(() => ({}));
+        if (data.quota) {
+          options?.onQuotaUpdate?.(data.quota);
+        }
+        throw new Error(data.error || '今日扫描次数已用完');
+      }
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -60,6 +77,10 @@ export function useCardRecognition(): UseCardRecognitionReturn {
 
       const data = await response.json();
       const info = data.cardInfo as CardInfo;
+
+      if (data.quota) {
+        options?.onQuotaUpdate?.(data.quota);
+      }
 
       setCardInfo(info);
       setState('success');
@@ -70,7 +91,7 @@ export function useCardRecognition(): UseCardRecognitionReturn {
       setError(err instanceof Error ? err.message : '识别失败，请重试');
       setState('error');
     }
-  }, []);
+  }, [options]);
 
   return { recognizeCard, state, cardInfo, error, preview, reset };
 }

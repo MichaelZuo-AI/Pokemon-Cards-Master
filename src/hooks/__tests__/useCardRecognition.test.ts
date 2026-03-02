@@ -47,7 +47,8 @@ describe('useCardRecognition', () => {
   it('recognizes card successfully', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ cardInfo: mockCardInfo }),
+      status: 200,
+      json: () => Promise.resolve({ cardInfo: mockCardInfo, quota: { remaining: 9, limit: 10, used: 1 } }),
     });
 
     const { result } = renderHook(() => useCardRecognition());
@@ -65,6 +66,7 @@ describe('useCardRecognition', () => {
   it('handles API error', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
+      status: 500,
       json: () => Promise.resolve({ error: '识别失败' }),
     });
 
@@ -79,9 +81,54 @@ describe('useCardRecognition', () => {
     expect(result.current.error).toBe('识别失败');
   });
 
+  it('handles 429 quota exceeded', async () => {
+    const onQuotaUpdate = jest.fn();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: () => Promise.resolve({
+        error: '今日扫描次数已用完，明天再来吧',
+        quota: { remaining: 0, limit: 10, used: 10 },
+      }),
+    });
+
+    const { result } = renderHook(() => useCardRecognition({ onQuotaUpdate }));
+    const file = new File(['test'], 'card.jpg', { type: 'image/jpeg' });
+
+    await act(async () => {
+      await result.current.recognizeCard(file);
+    });
+
+    expect(result.current.state).toBe('error');
+    expect(result.current.error).toContain('今日扫描次数已用完');
+    expect(onQuotaUpdate).toHaveBeenCalledWith({ remaining: 0, limit: 10, used: 10 });
+  });
+
+  it('calls onQuotaUpdate on successful recognition', async () => {
+    const onQuotaUpdate = jest.fn();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({
+        cardInfo: mockCardInfo,
+        quota: { remaining: 7, limit: 10, used: 3 },
+      }),
+    });
+
+    const { result } = renderHook(() => useCardRecognition({ onQuotaUpdate }));
+    const file = new File(['test'], 'card.jpg', { type: 'image/jpeg' });
+
+    await act(async () => {
+      await result.current.recognizeCard(file);
+    });
+
+    expect(onQuotaUpdate).toHaveBeenCalledWith({ remaining: 7, limit: 10, used: 3 });
+  });
+
   it('resets state', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
+      status: 200,
       json: () => Promise.resolve({ cardInfo: mockCardInfo }),
     });
 
@@ -98,5 +145,23 @@ describe('useCardRecognition', () => {
     });
     expect(result.current.state).toBe('idle');
     expect(result.current.cardInfo).toBeNull();
+  });
+
+  it('does not send X-App-Source header', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ cardInfo: mockCardInfo }),
+    });
+
+    const { result } = renderHook(() => useCardRecognition());
+    const file = new File(['test'], 'card.jpg', { type: 'image/jpeg' });
+
+    await act(async () => {
+      await result.current.recognizeCard(file);
+    });
+
+    const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+    expect(fetchCall[1].headers['X-App-Source']).toBeUndefined();
   });
 });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 
 export const runtime = 'edge';
 
@@ -8,9 +9,9 @@ const MAX_TEXT_LENGTH = 2000;
 const TIMEOUT_MS = 8000;
 
 export async function POST(request: NextRequest) {
-  const appSource = request.headers.get('X-App-Source');
-  if (appSource !== 'pokemon-cards-master') {
-    return NextResponse.json({ error: '未授权的请求' }, { status: 401 });
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: '请先登录' }, { status: 401 });
   }
 
   const apiKey = process.env.GOOGLE_CLOUD_TTS_API_KEY;
