@@ -1,7 +1,7 @@
-const CACHE_NAME = 'pokemon-cards-v2';
+const CACHE_NAME = 'pokemon-cards-v3';
 // Keep in sync with basePath in next.config.js
 const BASE_PATH = '/Pokemon/cardsmaster';
-const APP_SHELL = [BASE_PATH + '/', BASE_PATH + '/manifest.webmanifest'];
+const APP_SHELL = [BASE_PATH + '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -20,8 +20,8 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Skip API calls and non-GET requests
-  if (event.request.method !== 'GET' || event.request.url.includes('/api/')) {
+  // Skip API calls, non-GET requests, and navigation requests (auth redirects break otherwise)
+  if (event.request.method !== 'GET' || event.request.url.includes('/api/') || event.request.mode === 'navigate') {
     return;
   }
 
