@@ -6,6 +6,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: 'jwt' },
   pages: { signIn: '/login' },
   callbacks: {
+    authorized({ auth }) {
+      return !!auth?.user;
+    },
     jwt({ token, profile }) {
       if (profile?.sub) {
         token.sub = profile.sub;
