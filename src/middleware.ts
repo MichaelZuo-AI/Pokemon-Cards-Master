@@ -19,6 +19,7 @@ export const config = {
      * - /_next/* (Next.js internals)
      * - /favicon.ico, /manifest.webmanifest, /sw.js, /icons/* (static PWA files)
      */
+    '/',
     '/((?!login|api/auth|_next|favicon\\.ico|manifest\\.webmanifest|sw\\.js|icons).*)',
   ],
 };

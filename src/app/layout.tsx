@@ -6,6 +6,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: '宝可梦卡牌大师',
   description: '拍照识别宝可梦卡牌，中文语音朗读卡牌信息',
+  manifest: `${BASE_PATH}/manifest.webmanifest`,
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
