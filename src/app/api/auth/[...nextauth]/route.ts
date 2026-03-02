@@ -9,10 +9,9 @@ function patchUrl(req: NextRequest): NextRequest {
   if (!BASE_PATH) return req;
   const url = new URL(req.url);
   if (!url.pathname.startsWith(BASE_PATH)) {
-    return new NextRequest(
-      `${url.origin}${BASE_PATH}${url.pathname}${url.search}`,
-      { method: req.method, headers: req.headers, body: req.body },
-    );
+    const patchedUrl = `${url.origin}${BASE_PATH}${url.pathname}${url.search}`;
+    // Use standard Request clone pattern to preserve body, headers, cookies
+    return new NextRequest(new Request(patchedUrl, req));
   }
   return req;
 }
