@@ -22,11 +22,10 @@ export default function TTSDebugPage() {
   async function testTTSAPI() {
     log('info', '--- Test 1: TTS API ---');
     try {
-      const res = await fetch('/api/tts', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/tts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-App-Source': 'pokemon-cards-master',
         },
         body: JSON.stringify({ text: '你好，这是语音测试' }),
       });
@@ -178,11 +177,10 @@ export default function TTSDebugPage() {
 
       // Step 2: Fetch TTS (async — may lose gesture context)
       log('info', 'Step 2: Fetching TTS API...');
-      const res = await fetch('/api/tts', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/tts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-App-Source': 'pokemon-cards-master',
         },
         body: JSON.stringify({ text: '这是完整流程测试，模拟实际使用场景' }),
       });
