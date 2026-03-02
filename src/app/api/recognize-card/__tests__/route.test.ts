@@ -11,19 +11,13 @@ jest.mock('@/lib/auth', () => ({
   }),
 }));
 
-// Mock quota
+// Mock quota — route now uses consumeQuota atomically (no separate checkQuota)
 jest.mock('@/lib/quota', () => ({
-  checkQuota: jest.fn().mockResolvedValue({
-    allowed: true,
-    used: 0,
-    limit: 10,
-    remaining: 10,
-  }),
   consumeQuota: jest.fn().mockResolvedValue({
     allowed: true,
     used: 1,
-    limit: 10,
-    remaining: 9,
+    limit: 1000,
+    remaining: 999,
   }),
 }));
 
@@ -88,11 +82,11 @@ describe('POST /api/recognize-card', () => {
   });
 
   it('returns 429 when quota is exceeded', async () => {
-    const { checkQuota } = require('@/lib/quota');
-    checkQuota.mockResolvedValueOnce({
+    const { consumeQuota } = require('@/lib/quota');
+    consumeQuota.mockResolvedValueOnce({
       allowed: false,
-      used: 10,
-      limit: 10,
+      used: 1001,
+      limit: 1000,
       remaining: 0,
     });
 
@@ -128,10 +122,10 @@ describe('POST /api/recognize-card', () => {
     const data = await res.json();
     expect(data.cardInfo.nameCn).toBe('皮卡丘');
     expect(data.cardInfo.nameEn).toBe('Pikachu');
-    expect(data.quota.remaining).toBe(9);
+    expect(data.quota.remaining).toBe(999);
   });
 
-  it('consumes quota only after successful Gemini call', async () => {
+  it('consumes quota atomically before Gemini call', async () => {
     const { consumeQuota } = require('@/lib/quota');
 
     const req = makeRequest({ image: 'base64data' });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI, createPartFromBase64 } from '@google/genai';
 import { auth } from '@/lib/auth';
-import { checkQuota, consumeQuota } from '@/lib/quota';
+import { consumeQuota } from '@/lib/quota';
 
 const VISION_MODEL = 'gemini-2.5-flash';
 
@@ -49,9 +49,18 @@ function extractJSON(text: string): string {
   const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
   if (fenceMatch) return fenceMatch[1].trim();
 
-  // Try to find raw JSON object
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (jsonMatch) return jsonMatch[0];
+  // Try to find raw JSON object (non-greedy first to avoid capturing trailing garbage)
+  const jsonMatchLazy = text.match(/\{[\s\S]*?\}/);
+  if (jsonMatchLazy) {
+    try {
+      JSON.parse(jsonMatchLazy[0]);
+      return jsonMatchLazy[0];
+    } catch {
+      // Non-greedy didn't produce valid JSON — try greedy (nested braces)
+      const jsonMatchGreedy = text.match(/\{[\s\S]*\}/);
+      if (jsonMatchGreedy) return jsonMatchGreedy[0];
+    }
+  }
 
   return text;
 }
@@ -97,8 +106,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Quota check
-  const quotaStatus = await checkQuota(session.user.id);
+  // Quota check — consume atomically via INCR to prevent TOCTOU race
+  const quotaStatus = await consumeQuota(session.user.id);
   if (!quotaStatus.allowed) {
     return NextResponse.json(
       { error: '今日扫描次数已用完，明天再来吧', quota: quotaStatus },
@@ -162,10 +171,7 @@ export async function POST(request: NextRequest) {
     const raw = JSON.parse(jsonStr);
     const cardInfo = sanitizeCardInfo(raw);
 
-    // Consume quota only after successful recognition
-    const quota = await consumeQuota(session.user.id);
-
-    return NextResponse.json({ cardInfo, quota });
+    return NextResponse.json({ cardInfo, quota: quotaStatus });
   } catch (error) {
     console.error('Gemini API error:', error);
     return NextResponse.json(

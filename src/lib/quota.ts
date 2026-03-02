@@ -8,10 +8,8 @@ export interface QuotaStatus {
 }
 
 function getKSTDateString(): string {
-  const now = new Date();
-  // KST = UTC+9
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return kst.toISOString().slice(0, 10);
+  // en-CA locale gives YYYY-MM-DD format
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 }
 
 function makeKey(userId: string): string {

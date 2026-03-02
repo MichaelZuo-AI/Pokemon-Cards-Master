@@ -1,6 +1,13 @@
-const CACHE_NAME = 'pokemon-cards-v3';
-// Keep in sync with basePath in next.config.js
-const BASE_PATH = '/Pokemon/cardsmaster';
+import { NextResponse } from 'next/server';
+import { BASE_PATH } from '@/lib/paths';
+
+// Build-time timestamp ensures cache busts on each deployment
+const BUILD_ID = process.env.NEXT_BUILD_ID || Date.now().toString();
+
+export function GET() {
+  const body = `
+const CACHE_NAME = 'pokemon-cards-${BUILD_ID}';
+const BASE_PATH = '${BASE_PATH}';
 const APP_SHELL = [BASE_PATH + '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -41,3 +48,13 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+`.trimStart();
+
+  return new NextResponse(body, {
+    headers: {
+      'Content-Type': 'application/javascript',
+      'Cache-Control': 'no-cache',
+      'Service-Worker-Allowed': BASE_PATH || '/',
+    },
+  });
+}

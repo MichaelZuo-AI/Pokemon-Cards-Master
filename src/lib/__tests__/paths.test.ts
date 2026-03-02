@@ -63,17 +63,16 @@ describe('paths', () => {
       expect(apiPath('/api/quota')).toBe('/base/api/quota');
     });
 
-    it('works with a route that has no leading slash (concatenates literally)', () => {
+    it('normalizes a route without a leading slash', () => {
       process.env.NEXT_PUBLIC_BASE_PATH = '/base';
       const { apiPath } = require('../paths');
-      // No leading slash — the function does pure string concat, no normalization
-      expect(apiPath('api/tts')).toBe('/baseapi/tts');
+      expect(apiPath('api/tts')).toBe('/base/api/tts');
     });
 
-    it('returns empty string when both basePath and route are empty strings', () => {
+    it('returns /  when both basePath and route are empty strings', () => {
       process.env.NEXT_PUBLIC_BASE_PATH = '';
       const { apiPath } = require('../paths');
-      expect(apiPath('')).toBe('');
+      expect(apiPath('')).toBe('/');
     });
 
     it('handles a basePath without a trailing slash correctly (no double slash)', () => {
