@@ -1,5 +1,6 @@
-const CACHE_NAME = 'pokemon-cards-v1';
-const APP_SHELL = ['/', '/manifest.json'];
+const CACHE_NAME = 'pokemon-cards-v2';
+const BASE_PATH = '/Pokemon/cardsmaster';
+const APP_SHELL = [BASE_PATH + '/', BASE_PATH + '/manifest.json'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
