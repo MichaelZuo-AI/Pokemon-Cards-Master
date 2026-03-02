@@ -1,21 +1,15 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
-  const session = await auth();
+export async function GET(request: NextRequest) {
   return NextResponse.json({
-    authenticated: !!session?.user,
-    session: session ? {
-      userId: session.user?.id,
-      name: session.user?.name,
-      email: session.user?.email,
-    } : null,
+    requestUrl: request.url,
+    pathname: request.nextUrl.pathname,
+    basePath: request.nextUrl.basePath,
+    authUrl: process.env.AUTH_URL || '(not set)',
     env: {
       hasAuthSecret: !!process.env.AUTH_SECRET,
       hasGoogleId: !!process.env.AUTH_GOOGLE_ID,
       hasGoogleSecret: !!process.env.AUTH_GOOGLE_SECRET,
-      hasKvUrl: !!process.env.KV_REST_API_URL,
-      hasKvToken: !!process.env.KV_REST_API_TOKEN,
     },
   });
 }
