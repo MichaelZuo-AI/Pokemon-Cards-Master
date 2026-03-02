@@ -34,7 +34,7 @@ assert_eq() {
 
 assert_contains() {
   local label="$1" needle="$2" haystack="$3"
-  if echo "$haystack" | grep -q "$needle"; then pass "$label"; else fail "$label" "missing '$needle'"; fi
+  if echo "$haystack" | grep -qF "$needle"; then pass "$label"; else fail "$label" "missing '$needle'"; fi
 }
 
 # --- 1. Auth Gate (Unauthenticated) -----------------------------------------

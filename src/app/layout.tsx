@@ -38,7 +38,7 @@ export default function RootLayout({
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
-                  navigator.serviceWorker.register('${BASE_PATH}/sw.js').catch(() => {});
+                  navigator.serviceWorker.register(${JSON.stringify(`${BASE_PATH}/sw.js`)}).catch(() => {});
                 });
               }
             `,

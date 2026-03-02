@@ -7,6 +7,7 @@ export function GET() {
     short_name: '卡牌大师',
     description: '拍照识别宝可梦卡牌，中文语音朗读',
     start_url: BASE_PATH || '/',
+    scope: `${BASE_PATH}/`,
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#030712',

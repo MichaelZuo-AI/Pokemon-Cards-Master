@@ -19,15 +19,15 @@ describe('useQuota', () => {
       expect(result.current.loading).toBe(true);
     });
 
-    it('starts with optimistic default values (remaining=10, limit=10, used=0)', () => {
+    it('starts with optimistic default values (remaining=1000, limit=1000, used=0)', () => {
       (global.fetch as jest.Mock).mockReturnValueOnce(new Promise(() => {}));
       const { result } = renderHook(() => useQuota());
-      expect(result.current.remaining).toBe(10);
-      expect(result.current.limit).toBe(10);
+      expect(result.current.remaining).toBe(1000);
+      expect(result.current.limit).toBe(1000);
       expect(result.current.used).toBe(0);
     });
 
-    it('isExhausted is false on initial render (remaining=10)', () => {
+    it('isExhausted is false on initial render (remaining=1000)', () => {
       (global.fetch as jest.Mock).mockReturnValueOnce(new Promise(() => {}));
       const { result } = renderHook(() => useQuota());
       expect(result.current.isExhausted).toBe(false);
@@ -129,8 +129,8 @@ describe('useQuota', () => {
       });
 
       // State should remain at the initial defaults (non-ok path skips setQuota)
-      expect(result.current.remaining).toBe(10);
-      expect(result.current.limit).toBe(10);
+      expect(result.current.remaining).toBe(1000);
+      expect(result.current.limit).toBe(1000);
       expect(result.current.used).toBe(0);
       // loading was never set to false, so it stays true
       expect(result.current.loading).toBe(true);
@@ -150,7 +150,7 @@ describe('useQuota', () => {
       });
 
       // State stays at initial defaults — no throw, no crash
-      expect(result.current.remaining).toBe(10);
+      expect(result.current.remaining).toBe(1000);
       expect(result.current.loading).toBe(true);
     });
 

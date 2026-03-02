@@ -12,8 +12,8 @@ interface QuotaState {
 
 export function useQuota() {
   const [quota, setQuota] = useState<QuotaState>({
-    remaining: 10,
-    limit: 10,
+    remaining: 1000,
+    limit: 1000,
     used: 0,
     loading: true,
   });
