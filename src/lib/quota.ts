@@ -1,4 +1,4 @@
-const DAILY_LIMIT = 10;
+const DAILY_LIMIT = 1000;
 
 export interface QuotaStatus {
   allowed: boolean;
