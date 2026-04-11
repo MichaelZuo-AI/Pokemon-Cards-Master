@@ -8,7 +8,8 @@ export function GET() {
   const body = `
 const CACHE_NAME = 'pokemon-cards-${BUILD_ID}';
 const BASE_PATH = '${BASE_PATH}';
-const APP_SHELL = [BASE_PATH + '/manifest.webmanifest'];
+const OFFLINE_URL = BASE_PATH + '/offline';
+const APP_SHELL = [BASE_PATH + '/manifest.webmanifest', OFFLINE_URL];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -27,8 +28,18 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Skip API calls, non-GET requests, and navigation requests (auth redirects break otherwise)
-  if (event.request.method !== 'GET' || event.request.url.includes('/api/') || event.request.mode === 'navigate') {
+  // Skip API calls and non-GET requests
+  if (event.request.method !== 'GET' || event.request.url.includes('/api/')) {
+    return;
+  }
+
+  // Navigation requests: network-first, fall back to offline page
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        caches.match(OFFLINE_URL).then((cached) => cached || new Response('Offline', { status: 503 }))
+      )
+    );
     return;
   }
 
