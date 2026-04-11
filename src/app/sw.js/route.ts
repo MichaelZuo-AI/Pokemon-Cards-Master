@@ -43,6 +43,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // _next/static/ assets are content-hashed and immutable — pure cache-first saves bandwidth
+  if (event.request.url.includes('/_next/static/')) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  // All other static assets: stale-while-revalidate
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const fetchPromise = fetch(event.request)
